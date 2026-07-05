@@ -51,13 +51,20 @@ if not URL or not KEY:
     sys.exit(1)
 
 REST = f"{URL}/rest/v1/{TABLE}"
-# Both headers are required by Supabase's REST API: `apikey` identifies the
-# project, and the Bearer token authorizes the request.
+# How we authenticate depends on the key FORMAT:
+#   - Legacy keys are JWTs (they start with "eyJ"). Those go in BOTH the
+#     `apikey` header and the `Authorization: Bearer` header.
+#   - The newer Supabase keys (e.g. "sb_secret_...") are NOT JWTs. They must be
+#     sent ONLY in the `apikey` header. Putting a new-format key in
+#     `Authorization: Bearer` makes Supabase try to parse it as a JWT and reject
+#     the request (403 / "Invalid JWT"). Sent via `apikey` alone, a secret key
+#     still bypasses Row Level Security, exactly like the old service_role key.
 HEADERS = {
     "apikey": KEY,
-    "Authorization": f"Bearer {KEY}",
     "Content-Type": "application/json",
 }
+if KEY.startswith("eyJ"):
+    HEADERS["Authorization"] = f"Bearer {KEY}"
 
 def blanks_to_null(record):
     """Return a copy of the record with empty/whitespace-only strings -> None.
@@ -70,6 +77,23 @@ def blanks_to_null(record):
             cleaned[field] = value
     return cleaned
 
+def raise_on_error(r, action):
+    """If the response is an HTTP error, print Supabase's FULL response so we can
+    see the real reason (PostgREST returns a JSON error body), then stop.
+    Note: we deliberately print only the RESPONSE — never our request headers —
+    so the secret apikey is not exposed in the output you paste."""
+    if r.ok:
+        return
+    print(f"\nERROR while {action}: HTTP {r.status_code} {r.reason}")
+    print(f"  Request: {r.request.method} {r.url}")   # URL has no secret in it
+    body = r.text.strip()
+    print(f"  Response body: {body if body else '(empty)'}")
+    # These response headers often carry the real auth/why detail on a 401/403.
+    for h in ("www-authenticate", "content-range"):
+        if h in r.headers:
+            print(f"  {h}: {r.headers[h]}")
+    sys.exit(1)
+
 def count_existing_rows():
     """Ask the API how many rows are already in the table (so we don't
     silently create duplicates on a re-run)."""
@@ -77,7 +101,7 @@ def count_existing_rows():
     # header, e.g. "0-0/440". We request zero rows (limit=1) just to read it.
     r = requests.get(REST, headers={**HEADERS, "Prefer": "count=exact"},
                      params={"select": "id", "limit": 1}, timeout=30)
-    r.raise_for_status()
+    raise_on_error(r, "reading the current row count")
     content_range = r.headers.get("content-range", "*/0")  # ".../<total>"
     return int(content_range.split("/")[-1])
 
@@ -86,7 +110,7 @@ def delete_all_rows():
     auto-generated id is >= 1, so `id=gte.1` matches every row."""
     r = requests.delete(REST, headers={**HEADERS, "Prefer": "return=minimal"},
                         params={"id": "gte.1"}, timeout=60)
-    r.raise_for_status()
+    raise_on_error(r, "deleting existing rows")
 
 def main():
     replace = "--replace" in sys.argv
@@ -113,9 +137,7 @@ def main():
         batch = rows[start:start + 100]
         r = requests.post(REST, headers={**HEADERS, "Prefer": "return=minimal"},
                           data=json.dumps(batch), timeout=60)
-        if not r.ok:
-            print(f"\nInsert failed (HTTP {r.status_code}): {r.text}")
-            sys.exit(1)
+        raise_on_error(r, f"inserting rows {start + 1}-{start + len(batch)}")
         inserted += len(batch)
         print(f"  inserted {inserted}/{len(rows)}")
 

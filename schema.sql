@@ -61,4 +61,10 @@ create policy "Public can read crews"
   to anon, authenticated
   using (true);
 
+-- The RLS policy above decides WHICH rows a role may see, but Postgres also
+-- requires a base table-level privilege to read the table AT ALL. Supabase
+-- usually grants this to `anon` automatically, but grant it explicitly so this
+-- schema is self-contained and the public website can actually read the data.
+grant select on crews to anon, authenticated;
+
 -- Note: no index needed. 440 rows is tiny; Postgres scans it instantly.
