@@ -1,0 +1,24 @@
+# --- Secrets / environment (NEVER commit these) ---
+# The Supabase service_role key and other secrets are passed via env vars,
+# and any local .env file must stay out of git.
+.env
+.env.*
+!.env.example
+
+# --- Python (geocode.py / import_to_supabase.py) ---
+__pycache__/
+*.py[cod]
+
+# --- Node / Next.js (for the upcoming app) ---
+node_modules/
+.next/
+out/
+build/
+*.log
+
+# --- macOS ---
+.DS_Store
+
+# --- Claude Code local (machine-specific) settings ---
+# Keep the shared subagent (.claude/agents/) tracked, but not local settings.
+.claude/settings.local.json
