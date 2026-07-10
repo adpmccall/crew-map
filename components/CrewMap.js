@@ -266,7 +266,9 @@ export default function CrewMap() {
                 also sidestep the missing-image problem. */}
         {visibleCrews.map((crew) => {
           if (mode === "type") {
-            const t = crewTypeFor(crew.resource);
+            // Pass the active crew-type filter so a filtered pin shows the
+            // symbol for the type the user filtered to (see crewTypeFor).
+            const t = crewTypeFor(crew.resource, filters.crewType);
             return (
               <Marker
                 key={crew.id}
