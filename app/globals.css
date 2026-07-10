@@ -21,7 +21,7 @@ body {
   width: 100%;
 }
 
-/* A small info box floating over the map (loading / error / crew count). */
+/* A small info box floating over the map (loading / error message). */
 .map-status {
   position: absolute;
   top: 12px;
@@ -34,4 +34,287 @@ body {
   font-family: system-ui, sans-serif;
   font-size: 14px;
   color: #111;
+}
+
+/* The filter controls panel, floating over the map at top-left. */
+.filter-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000; /* above the map */
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  font-family: system-ui, sans-serif;
+  color: #111;
+  width: 220px;
+  max-width: 70vw; /* stay usable on small phone screens */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* If the panel ever gets taller than the screen, let it scroll instead of
+     spilling off the map. */
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.filter-panel .filter-count {
+  font-size: 13px;
+  color: #333;
+}
+
+/* Each control is a stacked label + select. */
+.filter-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+}
+
+.filter-panel select {
+  font-size: 13px;
+  font-weight: normal;
+  color: #111;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  max-width: 100%;
+}
+
+/* A multi-select dropdown facet, built on <details>/<summary>. */
+.checkbox-dropdown {
+  font-size: 12px;
+}
+
+/* The closed "dropdown button" — styled to match the native <select> boxes. */
+.checkbox-dropdown > summary {
+  list-style: none; /* remove the default disclosure triangle */
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  font-size: 13px;
+  font-weight: normal;
+  color: #111;
+}
+
+/* Hide the default marker in Safari/Chrome too. */
+.checkbox-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A caret on the right that flips when the dropdown is open. */
+.checkbox-dropdown > summary::after {
+  content: "▾";
+  color: #666;
+  font-size: 11px;
+}
+.checkbox-dropdown[open] > summary::after {
+  content: "▴";
+}
+.checkbox-dropdown[open] > summary {
+  border-color: #999;
+}
+
+/* The checkbox list that appears below the summary when opened. Scrolls if a
+   facet is long (e.g. 16 states) so it doesn't push the panel off-screen. */
+.checkbox-list {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: white;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: normal;
+  color: #111;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.filter-clear {
+  margin-top: 2px;
+  padding: 6px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.filter-clear:hover {
+  background: #eaeaea;
+}
+
+/* The crew detail popup (shown when a pin is clicked). */
+.crew-popup {
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  color: #111;
+  max-width: 240px;
+}
+
+.crew-popup-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+/* Two-column layout: label on the left, value on the right. */
+.crew-popup-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+}
+
+.crew-popup-list dt {
+  font-weight: 600;
+  color: #555;
+}
+
+.crew-popup-list dd {
+  margin: 0;
+}
+
+.crew-popup a {
+  color: #b91c1c;
+  word-break: break-all; /* keep long URLs from overflowing the popup */
+}
+
+/* Region color legend, floating at the bottom-left of the map. (Top-left is
+   taken by the filter panel; bottom-right is Leaflet's attribution.) */
+.legend {
+  position: absolute;
+  bottom: 16px;
+  left: 12px;
+  z-index: 1000; /* above the map */
+  background: white;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: #111;
+  max-width: 60vw;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 4px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+/* A small colored dot matching the map pins. */
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Fixed-width slot so legend labels line up whether the symbol is a dot,
+   an emoji, or a text chip. */
+.legend-symbol {
+  width: 26px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Crew-type symbol markers ("symbol by crew type" mode) ---- */
+
+/* The DivIcon container. `className: "type-marker"` replaces Leaflet's default
+   white-box icon styling, so only our symbol shows. */
+.type-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+/* Wrapper that lets the small badge (e.g. Rappel's "R") sit at a corner. */
+.type-marker-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.type-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Text-label symbol, e.g. "IHC" for hotshot crews — a small readable chip. */
+.type-text {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #b91c1c;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-family: system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+/* Small corner badge used to distinguish Rappel (🚁 R) from Helitack (🚁). */
+.type-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  width: 12px;
+  height: 12px;
+  background: #1f77b4;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, sans-serif;
+}
+
+/* Neutral marker for crews that match none of the symbolized types. */
+.type-dot {
+  width: 10px;
+  height: 10px;
+  background: #888;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.3);
 }

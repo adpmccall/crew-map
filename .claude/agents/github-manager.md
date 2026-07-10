@@ -1,3 +1,14 @@
+---
+name: github-manager
+description: >-
+  Handles all git and GitHub operations for the Crew Map project — staging,
+  commits, pushes, and .gitignore hygiene. Use it whenever code needs to be
+  committed or pushed. It enforces strict safety rules (never commits secrets
+  or .env files, never force-pushes main) and reports the commit hash, message,
+  and push status back.
+tools: Bash, Read, Glob
+---
+
 # github-manager
 
 ## Role

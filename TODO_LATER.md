@@ -4,16 +4,10 @@ Big-picture items so they're not forgotten. **None of these are started.** Pull
 an item into `TODO_NOW.md` only when it becomes the active work. See
 `ARCHITECTURE.md` for phase definitions.
 
-## Phase 1 finish (filters + detail) — not started
-- [ ] Filter controls visible on first load: state, region, housing, crew type
-- [ ] State filter (full uppercase names)
-- [ ] Region filter (the 6 regions)
-- [ ] Housing filter (only narrows on explicit YES/NO; blank = unknown)
-- [ ] Crew-type filter: curated canonical list, match case-insensitive "contains"
-- [ ] Click a pin → detail popup (forest, district, town, resource, housing,
-      website link if present, notes if present)
-- [ ] Mobile-friendly layout for map + filters + popup
-- [ ] Deploy to Vercel
+## Phase 1 finish (detail popup + deploy) — see TODO_NOW.md
+The filters (state/region/crew type/housing) are DONE. The remaining Phase 1
+items (full detail popup, mobile check, Vercel deploy) are now the active work
+and live in TODO_NOW.md.
 
 ## Phase 2 — Polish (ICING) — not started
 - [ ] Nicer / styled detail popups
