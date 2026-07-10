@@ -29,3 +29,17 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [ ] Deploy to Vercel
       (note: popup shows the user-requested fields; `notes` was not included —
       add later if wanted)
+
+## Phase 2.5 — "Currently hiring" jobs layer (ICING) — 🔨 backend in progress
+Owner-directed; building the DATA BACKEND ONLY now. No map UI in this task.
+Stop and verify after each step. See ARCHITECTURE.md for the decisions.
+- [ ] **Step 1 — Schema:** `jobs_schema.sql` — `jobs` table (upsert key =
+      announcement number), public-read RLS + explicit `grant select`. Run in
+      Supabase SQL Editor. ← **awaiting owner to run**
+- [ ] **Step 2 — Refresh script:** `refresh_jobs.py` — pull 0456+0462, drop
+      >8-location noise, expand to town duty-stations, geocode (reuse
+      `job_geocache.json`), upsert into `jobs` via service_role (local-only),
+      and clear postings that have closed. Re-runnable.
+- [ ] **Step 3 — Run + verify:** set env vars, run locally, confirm the `jobs`
+      table populated correctly in Supabase — before any map work.
+- [ ] (LATER, separate task) Map UI: browser-side proximity match, 50-mi radius.

@@ -27,10 +27,17 @@ need an account — see Phase 3.)
 | Database + API | **Supabase** (Postgres + auto REST API)| Free Postgres; queryable API without writing a backend |
 | Map            | **Leaflet** + **OpenStreetMap** tiles  | No API key, no signup, free |
 | Geocoding      | **OpenStreetMap Nominatim** (build-time only) | Free, no key, town-level; same OSM project as our tiles |
+| Jobs data      | **USAJOBS REST API** (build-time only)        | Official US federal jobs API; free with a self-registered key; pulled by a **local refresh script**, never by the app |
 
 **Hard constraints:** stay at **$0** (no paid keys, no credit-card services — so
 no Mapbox/Google Maps); keep the service count small (Vercel + Supabase + OSM is
 the whole list); don't add a fourth service without raising it first.
+
+**Note on USAJOBS:** it does **not** add a fourth runtime service. Like Nominatim,
+it's a **build-time data source** — a local script (`refresh_jobs.py`) queries it
+on our machine and writes rows into Supabase. The live app still talks only to
+Supabase (data) + OSM (tiles). The USAJOBS key is free (no billing), so we stay
+at $0.
 
 ## Key decisions and why
 
@@ -55,6 +62,33 @@ the whole list); don't add a fourth service without raising it first.
   explicitly picks YES or NO; blank-housing crews still show otherwise.
 - **Records with no `resource`/`housing` still appear** on the map and only drop
   out when a filter genuinely excludes them.
+
+### "Currently hiring" jobs layer (new feature — decisions)
+
+- **Separate `jobs` table, not merged into `crews`.** Jobs are a different kind
+  of thing (they open and close over time); keeping them in their own table means
+  a refresh can freely replace them without ever touching the curated crew data.
+- **Public-read, same as `crews`.** RLS on, one `select` policy for
+  `anon, authenticated`, plus the explicit `grant select` (the 42501 fix we
+  already learned we need). No public writes.
+- **A local refresh script owns all writes.** `refresh_jobs.py` pulls from
+  USAJOBS, filters noise, geocodes, and **upserts** into `jobs` using the
+  **service_role key** — local-only, from an env var, never hardcoded or
+  committed (identical safety rules to `import_to_supabase.py`). Run **manually
+  for now**, like `geocode.py`; no scheduler yet.
+- **Search both job series 0456 AND 0462.** The Forest Service is mid-transition
+  from 0462 (Forestry Technician) to the new 0456 (Wildland Fire Management), and
+  DOI already uses 0456 — so we query both to catch every open posting.
+- **Drop "national-announcement" noise.** Postings listing **>8 duty locations**
+  are administrative HQ lists, not field stations; we exclude them so a job maps
+  to real towns.
+- **One posting → many town rows.** A posting open in several towns is expanded
+  into one `jobs` row per geocoded duty-station town (so it can light up the
+  right pins).
+- **Proximity matching in the browser, radius 50 miles.** The app compares crew
+  lat/lng to job lat/lng client-side; a crew "lights up as hiring" when an open
+  job falls within 50 mi. (50 mi chosen from a dry-run: ~90/440 crews light up —
+  enough to feel alive, still a genuine commute-shed. See the exploration notes.)
 
 ## Phases
 
@@ -88,6 +122,24 @@ the whole list); don't add a fourth service without raising it first.
 - **Definition of done:** improved popups, pin clustering for dense areas,
   mobile/visual refinement, acceptable performance with all pins.
 
+### Phase 2.5 — "Currently hiring" jobs layer  · ICING · 🔨 IN PROGRESS (backend)
+- **Goal:** show which crews have an open USAJOBS fire posting nearby (≤50 mi),
+  as a layer on top of the existing map.
+- **Note on ordering:** this is ICING; the CORE product is the Phase 1 crew map.
+  We're building it now at the owner's direction, but Phase 1's last CORE items
+  (mobile verification + Vercel deploy) are still open and remain the priority.
+- **Build order (stop-and-verify after each):**
+  1. **Schema** — `jobs_schema.sql`: the `jobs` table + public-read RLS + grant.
+  2. **Refresh script** — `refresh_jobs.py`: pull 0456+0462 → drop >8-location
+     noise → expand to town duty-stations → geocode (reuse `job_geocache.json`)
+     → upsert into `jobs` (service_role, local-only) → clear closed postings.
+  3. **Run + verify** — populate `jobs` in Supabase and confirm it looks right
+     **before any map work**.
+- **Definition of done (backend only, this task):** `jobs` table exists,
+  public-readable; `refresh_jobs.py` populates it safely and re-runnably; the
+  table holds only currently-open, geocoded, non-noise postings.
+- **Map UI is a LATER, separate task** — not in scope here.
+
 ### Phase 3+ — Community features  · ICING · ⬜ DEFERRED
 - **Goal:** let people contribute crew data.
 - **Definition of done:** add/edit/submit crews, accounts, moderation —
@@ -98,11 +150,17 @@ the whole list); don't add a fourth service without raising it first.
 
 - **Phase 0: ✅ done.** `crews_with_coords.json` written, **440/440 geocoded**;
   `still_missing.csv` empty.
-- **Phase 1: not started.** No Next.js app, no `package.json`, no Supabase
-  project/table, no Leaflet map yet.
-- Files present: `crews_cleaned.json` (440 source records), `geocode.py`
-  (Nominatim), `crews_with_coords.json` (map-ready), `still_missing.csv`,
-  `CLAUDE.md`, this file, `TODO_NOW.md`, `TODO_LATER.md`.
+- **Phase 1: ✅ map + filters + popup live.** Next.js app, Supabase `crews` table
+  (440 rows), Leaflet/OSM map as the landing page, all four filters, and the
+  detail popup all work. **Remaining CORE:** mobile verification + Vercel deploy.
+- **Phase 2.5 (Currently hiring): 🔨 backend in progress.** Data-source
+  exploration done (USAJOBS API, series 0456+0462, >8-location noise filter,
+  50-mi proximity dry-run). Now building the backend: `jobs_schema.sql` →
+  `refresh_jobs.py` → run + verify. **No map UI yet.**
+- Files present: `crews_cleaned.json`, `geocode.py`, `crews_with_coords.json`,
+  `import_to_supabase.py`, `schema.sql`, the Next.js app, plus exploration
+  outputs `fetch_jobs.py` / `fire_jobs_raw.json` / `job_geocache.json`
+  (gitignored). New this phase: `jobs_schema.sql`, `refresh_jobs.py`.
 
 ## How to resume (for a fresh session)
 
