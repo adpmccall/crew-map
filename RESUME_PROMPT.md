@@ -18,33 +18,57 @@ load it before doing anything.
    - SESSION_SYNOPSIS.md  (plain-language summary of everything done so far)
 
 2. Then STOP and tell me, in a few lines:
-   - a short summary of where the project currently stands, and
-   - what the immediate next action is.
+   - a short summary of where the project currently stands
+   - what the immediate next action is
    Do NOT change any files or run anything yet — confirm with me first.
 
-3. The immediate next step is the Supabase data load. First ASK me whether
-   schema.sql has been run and the 440 rows imported into Supabase yet:
-   - If NOT done: help me run schema.sql (creates the `crews` table) and then
-     import_to_supabase.py (loads all 440 rows from crews_with_coords.json,
-     converting blanks to NULL). The import needs SUPABASE_URL and
-     SUPABASE_SERVICE_ROLE_KEY set as environment variables locally only.
-   - If already done (table shows 440 rows): move on to Phase 1 — scaffold the
-     Next.js app and render the Leaflet + OpenStreetMap map as the landing page,
-     showing all crews as pins loaded from Supabase. Then have the read-only
-     code-reviewer subagent (.claude/agents/code-reviewer.md) review the work.
+3. Here is where we are:
+   - Phase 0 is 100% complete: 440 crews geocoded and imported into Supabase.
+   - GitHub repo is live at github.com/adpmccall/crew-map (public).
+   - Phase 1 frontend is largely complete:
+     * Next.js app scaffolded (App Router, plain JS, Next.js 14.2.35)
+     * Leaflet + OpenStreetMap map IS the landing page (no homepage/splash/login)
+     * All 440 crew pins load from Supabase via anon key only
+     * Regional color coding with legend (R1–R6)
+     * Click popup showing crew details
+     * Filter panel with State, Region, Crew Type, Housing filters
+     * Zoom controls positioned bottom-right
+     * Multi-select checkboxes for State/Region/Crew Type were just requested
+       at session end — CHECK if this is done before building anything new.
 
-4. Respect these safety rules at all times:
-   - The website may use ONLY the public Supabase "anon" key. The "service_role"
-     key is for the LOCAL import ONLY — never put it in app code, screenshots,
-     or git.
-   - Stay $0: Next.js/Vercel + Supabase + Leaflet/OpenStreetMap only. No paid
-     keys or services (no Mapbox/Google Maps).
-   - The map IS the landing page: opening the URL shows the interactive map
-     immediately — no homepage, no splash, and no login to view. Viewing and
-     searching are always login-free; only future editing (Phase 3) needs auth.
-   - Keep Supabase Row Level Security as-is: public read, no writes.
+4. Immediate next steps (in order):
+   a) Check if multi-select checkboxes for State, Region, and Crew Type are
+      working. If not complete, finish them first.
+   b) Add crew-type symbol mode: a toggle that switches pins from "color by
+      region" to "symbol by crew type" using Leaflet DivIcon with emojis:
+      - Hotshot (IHC) → text label "IHC"
+      - Engine → 🚒
+      - Helitack → 🚁
+      - Smokejumper → ✈️
+      - Rappel → 🚁 with small "R" to distinguish from Helitack
+      Update the legend to match whichever mode is active.
+   c) Deploy to Vercel (free tier) — connect the GitHub repo and get a live
+      public URL. The site needs NEXT_PUBLIC_SUPABASE_URL and
+      NEXT_PUBLIC_SUPABASE_ANON_KEY set as environment variables in Vercel
+      (NOT the service_role key — anon/publishable key only).
 
-Start by reading the files in step 1, then give me the summary in step 2.
+5. Subagents available:
+   - code-reviewer (.claude/agents/code-reviewer.md) — read-only, reviews code
+   - github-manager (.claude/agents/github-manager.md) — handles all git ops;
+     use this for commits and pushes. It WILL be available since this is a
+     fresh session.
+
+6. Safety rules — never violate these:
+   - App uses ONLY the public anon/publishable key (NEXT_PUBLIC_SUPABASE_ANON_KEY)
+   - service_role / secret key is for local import only — never in app code,
+     screenshots, or git
+   - Stay $0: Next.js/Vercel + Supabase + Leaflet/OpenStreetMap only
+   - Map IS the landing page: no homepage, splash, or login to view
+   - RLS stays public-read only (no write policies until Phase 3)
+   - Environment variables don't persist between Terminal sessions — re-export
+     SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY if running import scripts
+
+Start by reading the files in step 1, then give me the short summary in step 2.
 ```
 
 ---
