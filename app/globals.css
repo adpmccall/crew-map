@@ -318,3 +318,121 @@ body {
   display: inline-block;
   border: 1px solid rgba(0, 0, 0, 0.3);
 }
+
+/* ---- "Currently hiring" feature ---- */
+
+/* The hiring controls in the filter panel, set off by a top rule so they read
+   as a distinct layer above the four crew filters. */
+.hiring-filter {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The toggle is a horizontal checkbox + wrapping label (unlike the stacked
+   filter labels above), so override the panel's default column layout. */
+.hiring-filter .hiring-toggle {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+}
+
+.hiring-filter .hiring-toggle input {
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+}
+
+/* The "updated <date>" line — small and quiet, but present so freshness is
+   always visible (honest framing). */
+.hiring-note {
+  font-size: 11px;
+  color: #666;
+}
+
+.hiring-note-muted {
+  font-style: italic;
+}
+
+/* Shown when the toggle is on but nothing matches — reads as "none right now",
+   not as a broken map. */
+.hiring-empty-state {
+  font-size: 12px;
+  color: #8a5a00;
+  background: #fff7e6;
+  border: 1px solid #f5d99a;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* The amber ring swatch in the legend, matching the on-map hiring ring: a
+   hollow circle with an amber stroke. */
+.hiring-ring-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2.5px solid #f59e0b;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
+/* Give the hiring legend row a little breathing room from the entries above. */
+.legend-hiring-row {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #eee;
+}
+
+/* The nearby-jobs section inside a crew popup. */
+.crew-popup-jobs {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.crew-popup-jobs-title {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.crew-popup-jobs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.crew-popup-job .job-title {
+  font-weight: 600;
+  color: #111;
+  line-height: 1.25;
+}
+
+.crew-popup-job .job-meta {
+  color: #555;
+  font-size: 12px;
+  margin: 1px 0 2px;
+}
+
+/* The apply link reuses the popup's link color; keep it on its own line. */
+.crew-popup-job a {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.crew-popup-jobs .job-more {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+}

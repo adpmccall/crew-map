@@ -25,7 +25,22 @@ function TypeSymbol({ t }) {
   );
 }
 
-export default function Legend({ mode }) {
+// The amber ring drawn around pins that have an open job nearby. Shown in the
+// legend (in BOTH modes) so the indicator on the map is explained. Only rendered
+// when there are jobs to match against.
+function HiringLegendRow({ show }) {
+  if (!show) return null;
+  return (
+    <div className="legend-row legend-hiring-row">
+      <span className="legend-symbol">
+        <span className="hiring-ring-swatch" />
+      </span>
+      <span>Hiring within 50 mi</span>
+    </div>
+  );
+}
+
+export default function Legend({ mode, showHiring }) {
   if (mode === "type") {
     return (
       <div className="legend">
@@ -38,6 +53,7 @@ export default function Legend({ mode }) {
             <span>{t.label}</span>
           </div>
         ))}
+        <HiringLegendRow show={showHiring} />
       </div>
     );
   }
@@ -52,6 +68,7 @@ export default function Legend({ mode }) {
           <span>{r.label}</span>
         </div>
       ))}
+      <HiringLegendRow show={showHiring} />
     </div>
   );
 }

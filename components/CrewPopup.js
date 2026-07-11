@@ -20,7 +20,18 @@ function withProtocol(url) {
   return `https://${url}`;
 }
 
-export default function CrewPopup({ crew }) {
+// Show a friendly distance: under a mile reads as "<1 mi" rather than "0 mi".
+function formatDistance(miles) {
+  return miles < 1 ? "<1 mi" : `${Math.round(miles)} mi`;
+}
+
+// How many nearby jobs to list in the popup before we just show a "+N more"
+// summary — keeps a crew near a busy hiring town from producing a giant popup.
+const MAX_JOBS_SHOWN = 5;
+
+// `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
+// by the map. It's empty (default) for crews with no open postings within range.
+export default function CrewPopup({ crew, nearbyJobs = [] }) {
   // This dataset has no dedicated "crew name" field. Each crew is identified by
   // its ranger district (e.g. "BUTTE RD") within a forest, so we use the
   // district as the crew name — falling back to the forest when it's blank.
@@ -68,6 +79,42 @@ export default function CrewPopup({ crew }) {
           </>
         )}
       </dl>
+
+      {/* "Currently hiring" section — only appears when at least one open
+          USAJOBS posting is within 50 miles of this crew. We label it plainly
+          (these are nearby postings, not necessarily THIS crew's jobs) and link
+          straight to USAJOBS to apply. Up to 5 are shown, closest first. */}
+      {nearbyJobs.length > 0 && (
+        <div className="crew-popup-jobs">
+          <h4 className="crew-popup-jobs-title">
+            Open USAJOBS postings within 50 mi
+          </h4>
+          <ul className="crew-popup-jobs-list">
+            {nearbyJobs.slice(0, MAX_JOBS_SHOWN).map(({ job, distanceMi }) => (
+              <li key={job.id} className="crew-popup-job">
+                <div className="job-title">{job.title}</div>
+                <div className="job-meta">
+                  {job.town}, {job.state} · {formatDistance(distanceMi)}
+                </div>
+                {job.apply_url && (
+                  <a
+                    href={withProtocol(job.apply_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Apply on USAJOBS →
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+          {nearbyJobs.length > MAX_JOBS_SHOWN && (
+            <div className="job-more">
+              +{nearbyJobs.length - MAX_JOBS_SHOWN} more nearby
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

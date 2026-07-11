@@ -51,7 +51,13 @@ export default function Filters({
   totalCount, // how many crews there are in total
   mode, // how pins are symbolized: "region" | "type"
   onModeChange, // (mode) => void  — switch symbolization mode
+  hasJobs, // boolean — did any open USAJOBS postings load?
+  jobsUpdatedLabel, // e.g. "Jul 10, 2026" — when the jobs data was last refreshed
 }) {
+  // The hiring toggle is on but nothing matches → show a clear "nothing right
+  // now" message so it reads as an empty result, not a broken map.
+  const hiringEmpty = values.hiringNearby && hasJobs && shownCount === 0;
+
   return (
     <div className="filter-panel">
       <div className="filter-count">
@@ -102,6 +108,38 @@ export default function Filters({
           <option value="NO">No housing</option>
         </select>
       </label>
+
+      {/* "Currently hiring" controls. Separated by a rule so it reads as a
+          distinct layer on top of the four crew filters. */}
+      <div className="hiring-filter">
+        <label className="hiring-toggle">
+          <input
+            type="checkbox"
+            checked={values.hiringNearby}
+            onChange={(e) => onChange("hiringNearby", e.target.checked)}
+            disabled={!hasJobs}
+          />
+          <span>Show only crews hiring nearby (within 50 mi)</span>
+        </label>
+
+        {/* Honest framing: name the source and show how fresh it is. When no
+            postings loaded at all, say so plainly rather than hiding the row. */}
+        {hasJobs ? (
+          <div className="hiring-note">
+            Open USAJOBS postings · updated {jobsUpdatedLabel}
+          </div>
+        ) : (
+          <div className="hiring-note hiring-note-muted">
+            No open USAJOBS postings right now
+          </div>
+        )}
+
+        {hiringEmpty && (
+          <div className="hiring-empty-state">
+            No crews have open USAJOBS postings within 50 mi right now.
+          </div>
+        )}
+      </div>
 
       <button type="button" className="filter-clear" onClick={onClear}>
         Clear filters

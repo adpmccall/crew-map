@@ -8,7 +8,7 @@
 // It's a client component ("use client") and is loaded with ssr:false from
 // app/page.js, because Leaflet only works in the browser.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -22,6 +22,7 @@ import "leaflet/dist/leaflet.css"; // Leaflet's own styles — required to rende
 import { supabase } from "../lib/supabaseClient";
 import { colorForRegion, REGIONS } from "../lib/regions";
 import { crewTypeFor, CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
+import { haversineMiles, HIRING_RADIUS_MI } from "../lib/proximity";
 import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
 import Legend from "./Legend";
@@ -51,8 +52,26 @@ const CREW_TYPES = [
 
 // The "no filters applied" starting point. State/Region/Crew type are
 // multi-select, so they start as empty arrays (no boxes checked = no narrowing).
-// Housing stays single-select, so it starts as "" ("Any").
-const EMPTY_FILTERS = { state: [], region: [], crewType: [], housing: "" };
+// Housing stays single-select, so it starts as "" ("Any"). hiringNearby is the
+// "currently hiring" toggle and starts off (false = don't narrow by jobs).
+const EMPTY_FILTERS = {
+  state: [],
+  region: [],
+  crewType: [],
+  housing: "",
+  hiringNearby: false,
+};
+
+// Amber ring drawn behind a pin that has an open job within 50 mi. It's its own
+// non-interactive layer, so it works IDENTICALLY in both "region" and "type"
+// modes without changing the pin itself, and never steals clicks from the pin.
+const HIRING_RING_OPTIONS = {
+  color: "#f59e0b", // amber — reads as "opportunity", distinct from region colors
+  weight: 3,
+  opacity: 0.9,
+  fill: false,
+  interactive: false,
+};
 
 // Builds the little HTML label shown inside a crew-type DivIcon marker (used in
 // "symbol by crew type" mode). Mirrors how the Legend draws the same symbol.
@@ -72,6 +91,10 @@ export default function CrewMap() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   // How pins are drawn: "region" = colored circles, "type" = crew-type symbols.
   const [mode, setMode] = useState("region");
+  // Open USAJOBS postings (the "currently hiring" layer). Loaded separately from
+  // crews and deliberately NON-blocking: if the jobs read fails, the crew map
+  // still works — the hiring toggle just shows an empty state.
+  const [jobs, setJobs] = useState([]);
 
   // Build one Leaflet DivIcon per crew type ONCE and reuse it for every marker
   // of that type (making 440 icons individually would be wasteful). L.divIcon
@@ -115,6 +138,30 @@ export default function CrewMap() {
     loadCrews();
   }, []);
 
+  useEffect(() => {
+    // Load open job postings from the public `jobs` table (same anon key, same
+    // public-read pattern as crews — never the secret key). We only need the
+    // fields for matching (lat/lng) and for the popup/label.
+    async function loadJobs() {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select(
+          "id, title, agency, town, state, latitude, longitude, apply_url, close_date, last_refreshed"
+        )
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      if (error) {
+        // Non-fatal: log it and leave `jobs` empty so the map still works.
+        console.warn("Couldn't load jobs:", error.message);
+        return;
+      }
+      setJobs(data ?? []);
+    }
+
+    loadJobs();
+  }, []);
+
   // Build the State and Region dropdown options FROM the data, so they always
   // match what's actually in the database. (useMemo just avoids recomputing
   // these on every render — they only change when `crews` changes.)
@@ -126,6 +173,50 @@ export default function CrewMap() {
     () => [...new Set(crews.map((c) => c.region).filter(Boolean))].sort(),
     [crews]
   );
+
+  // Proximity match, done once in the browser: for each crew, the open jobs
+  // within 50 miles, sorted closest-first. We store it as { [crewId]: [...] }
+  // and only include crews that actually have a nearby job, so a simple lookup
+  // tells us both "is this crew hiring?" and "which jobs to show in its popup".
+  // 440 crews × ~32 jobs is a tiny amount of math; useMemo just avoids redoing
+  // it on every render (only when crews or jobs change).
+  const nearbyJobsByCrew = useMemo(() => {
+    const byCrew = {};
+    if (!jobs.length) return byCrew;
+    for (const crew of crews) {
+      const near = [];
+      for (const job of jobs) {
+        const distanceMi = haversineMiles(
+          crew.latitude,
+          crew.longitude,
+          job.latitude,
+          job.longitude
+        );
+        if (distanceMi <= HIRING_RADIUS_MI) near.push({ job, distanceMi });
+      }
+      if (near.length) {
+        near.sort((a, b) => a.distanceMi - b.distanceMi);
+        byCrew[crew.id] = near;
+      }
+    }
+    return byCrew;
+  }, [crews, jobs]);
+
+  // The most recent `last_refreshed` across all jobs, formatted for display, so
+  // users can see how fresh the "currently hiring" data is. Empty when no jobs.
+  const jobsUpdatedLabel = useMemo(() => {
+    let latest = 0;
+    for (const job of jobs) {
+      const t = Date.parse(job.last_refreshed);
+      if (!Number.isNaN(t) && t > latest) latest = t;
+    }
+    if (!latest) return "";
+    return new Date(latest).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }, [jobs]);
 
   // Build the checkbox option lists as { value, label } pairs. The value is what
   // we filter on; the label is what the user sees. State/crew-type labels are
@@ -184,9 +275,15 @@ export default function CrewMap() {
         if (!matchesAny) return false;
       }
 
+      // "Currently hiring" toggle: when on, keep only crews that have at least
+      // one open job within 50 mi. Crews with no nearby job drop out.
+      if (filters.hiringNearby && !nearbyJobsByCrew[crew.id]) {
+        return false;
+      }
+
       return true;
     });
-  }, [crews, filters]);
+  }, [crews, filters, nearbyJobsByCrew]);
 
   // Toggle one value in a multi-select facet (state / region / crewType):
   // add it if it's not checked, remove it if it is.
@@ -231,8 +328,10 @@ export default function CrewMap() {
             totalCount={crews.length}
             mode={mode}
             onModeChange={setMode}
+            hasJobs={jobs.length > 0}
+            jobsUpdatedLabel={jobsUpdatedLabel}
           />
-          <Legend mode={mode} />
+          <Legend mode={mode} showHiring={jobs.length > 0} />
         </>
       )}
 
@@ -265,39 +364,59 @@ export default function CrewMap() {
                 by the crew's type (lib/crewTypes.js). DivIcons are HTML, so they
                 also sidestep the missing-image problem. */}
         {visibleCrews.map((crew) => {
+          // Open jobs within 50 mi of this crew (undefined if none). Drives both
+          // the amber ring and the list shown in the popup.
+          const nearbyJobs = nearbyJobsByCrew[crew.id];
+          const position = [crew.latitude, crew.longitude];
+
+          // The hiring ring: a separate, non-interactive CircleMarker drawn
+          // FIRST so the real pin sits on top of it. Because it's the same in
+          // both modes, the indicator looks consistent whether pins are region
+          // circles or crew-type symbols.
+          const ring = nearbyJobs ? (
+            <CircleMarker
+              key={`ring-${crew.id}`}
+              center={position}
+              radius={12}
+              interactive={false}
+              pathOptions={HIRING_RING_OPTIONS}
+            />
+          ) : null;
+
           if (mode === "type") {
             // Pass the active crew-type filter so a filtered pin shows the
             // symbol for the type the user filtered to (see crewTypeFor).
             const t = crewTypeFor(crew.resource, filters.crewType);
             return (
-              <Marker
-                key={crew.id}
-                position={[crew.latitude, crew.longitude]}
-                icon={typeIcons[t.key]}
-              >
-                <Popup>
-                  <CrewPopup crew={crew} />
-                </Popup>
-              </Marker>
+              <Fragment key={crew.id}>
+                {ring}
+                <Marker position={position} icon={typeIcons[t.key]}>
+                  <Popup>
+                    <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
+                  </Popup>
+                </Marker>
+              </Fragment>
             );
           }
 
           const color = colorForRegion(crew.region);
           return (
-            <CircleMarker
-              key={crew.id}
-              center={[crew.latitude, crew.longitude]}
-              radius={6}
-              pathOptions={{
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.85,
-              }}
-            >
-              <Popup>
-                <CrewPopup crew={crew} />
-              </Popup>
-            </CircleMarker>
+            <Fragment key={crew.id}>
+              {ring}
+              <CircleMarker
+                center={position}
+                radius={6}
+                pathOptions={{
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.85,
+                }}
+              >
+                <Popup>
+                  <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
+                </Popup>
+              </CircleMarker>
+            </Fragment>
           );
         })}
       </MapContainer>

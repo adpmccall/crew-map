@@ -122,23 +122,30 @@ at $0.
 - **Definition of done:** improved popups, pin clustering for dense areas,
   mobile/visual refinement, acceptable performance with all pins.
 
-### Phase 2.5 — "Currently hiring" jobs layer  · ICING · 🔨 IN PROGRESS (backend)
+### Phase 2.5 — "Currently hiring" jobs layer  · ICING · ✅ DONE
 - **Goal:** show which crews have an open USAJOBS fire posting nearby (≤50 mi),
   as a layer on top of the existing map.
 - **Note on ordering:** this is ICING; the CORE product is the Phase 1 crew map.
-  We're building it now at the owner's direction, but Phase 1's last CORE items
-  (mobile verification + Vercel deploy) are still open and remain the priority.
-- **Build order (stop-and-verify after each):**
-  1. **Schema** — `jobs_schema.sql`: the `jobs` table + public-read RLS + grant.
+  Built at the owner's direction ahead of Phase 1's last CORE items (mobile
+  verification + Vercel deploy), which remain the priority.
+- **What shipped:**
+  1. **Schema** — `jobs_schema.sql`: `jobs` table, public-read RLS, explicit
+     grants (`select` to anon/authenticated + `all` to service_role).
   2. **Refresh script** — `refresh_jobs.py`: pull 0456+0462 → drop >8-location
      noise → expand to town duty-stations → geocode (reuse `job_geocache.json`)
-     → upsert into `jobs` (service_role, local-only) → clear closed postings.
-  3. **Run + verify** — populate `jobs` in Supabase and confirm it looks right
-     **before any map work**.
-- **Definition of done (backend only, this task):** `jobs` table exists,
-  public-readable; `refresh_jobs.py` populates it safely and re-runnably; the
-  table holds only currently-open, geocoded, non-noise postings.
-- **Map UI is a LATER, separate task** — not in scope here.
+     → upsert into `jobs` (secret key, local-only) → prune closed postings.
+     Re-runnable; refuses to wipe the table on an empty/bad pull.
+  3. **Map layer** — browser-side proximity match (`lib/proximity.js`, haversine,
+     50-mi radius): amber ring on hiring pins in BOTH symbol modes; a "hiring
+     nearby" filter toggle; the crew popup lists nearby postings (≤5, closest
+     first) with Apply-on-USAJOBS links; a visible "updated {date}" label and
+     clear empty states.
+- **Definition of done — met:** `jobs` populated (32 rows) and public-readable;
+  refresh is safe/re-runnable; the map lights up hiring crews (verified 90/440,
+  incl. Redding/Flagstaff/Bishop) without breaking either existing mode.
+- **Security note:** the original legacy `service_role` key was exposed and has
+  been rotated; we migrated to Supabase's new key system (`sb_secret_` for the
+  local script, `sb_publishable_` for the app at deploy time).
 
 ### Phase 3+ — Community features  · ICING · ⬜ DEFERRED
 - **Goal:** let people contribute crew data.
@@ -153,14 +160,15 @@ at $0.
 - **Phase 1: ✅ map + filters + popup live.** Next.js app, Supabase `crews` table
   (440 rows), Leaflet/OSM map as the landing page, all four filters, and the
   detail popup all work. **Remaining CORE:** mobile verification + Vercel deploy.
-- **Phase 2.5 (Currently hiring): 🔨 backend in progress.** Data-source
-  exploration done (USAJOBS API, series 0456+0462, >8-location noise filter,
-  50-mi proximity dry-run). Now building the backend: `jobs_schema.sql` →
-  `refresh_jobs.py` → run + verify. **No map UI yet.**
+- **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
+  `refresh_jobs.py`, 32-row `jobs` table) and the map layer (proximity rings,
+  hiring toggle, jobs-in-popup) both shipped and verified. Legacy service_role
+  key rotated to the new `sb_secret_`/`sb_publishable_` key system.
 - Files present: `crews_cleaned.json`, `geocode.py`, `crews_with_coords.json`,
-  `import_to_supabase.py`, `schema.sql`, the Next.js app, plus exploration
-  outputs `fetch_jobs.py` / `fire_jobs_raw.json` / `job_geocache.json`
-  (gitignored). New this phase: `jobs_schema.sql`, `refresh_jobs.py`.
+  `import_to_supabase.py`, `schema.sql`, `jobs_schema.sql`, `refresh_jobs.py`,
+  the Next.js app (now incl. `lib/proximity.js` + the jobs layer), plus
+  exploration outputs `fetch_jobs.py` / `fire_jobs_raw.json` / `job_geocache.json`
+  (last two gitignored).
 
 ## How to resume (for a fresh session)
 
