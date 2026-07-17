@@ -43,6 +43,15 @@ at $0.
 
 - **Map is the landing page.** No homepage or auth gate in Phase 1. The product
   is the map + filters on first load. This is the whole point, not a later polish.
+- **Control panel is organized as LAYERS, not tabs.** As we add data beyond the
+  base crews (jobs now; maybe housing later), the panel groups controls into
+  stacked, collapsible **layer sections** rather than tabs or separate pages —
+  this keeps everything spatially connected on the single map (the map stays the
+  landing page — non-negotiable). Each layer owns its controls and its honest
+  data-source/freshness label. **Crews** is the always-on base layer; other
+  layers (e.g. **Hiring**) are toggleable overlays. A reusable `LayerSection`
+  component means a new layer is a clean addition, not a panel rewrite. Layer
+  visibility (on/off) is distinct from that layer's internal filters.
 - **Viewing is always login-free.** Search/view never requires an account; only
   editing (Phase 3) would.
 - **Leaflet + OSM over Mapbox/Google Maps.** Those need API keys and billing;

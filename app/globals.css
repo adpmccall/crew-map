@@ -131,8 +131,8 @@ body {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 160px;
+  gap: 1px; /* tight rhythm so more options fit before scrolling */
+  max-height: 200px;
   overflow-y: auto;
   border: 1px solid #eee;
   border-radius: 4px;
@@ -140,17 +140,28 @@ body {
   background: white;
 }
 
-.checkbox-row {
+/* One option row: checkbox on the LEFT, label immediately to its right, the
+   whole row left-aligned and clickable.
+   The `.filter-panel` prefix is deliberate — it out-specifies the panel's
+   default `.filter-panel label { flex-direction: column }`, which would
+   otherwise stack the checkbox ABOVE the label and center them (the bug). This
+   is the same override trick `.hiring-toggle` uses. */
+.filter-panel .checkbox-row {
   display: flex;
-  align-items: center;
+  flex-direction: row; /* checkbox + label side by side, not stacked */
+  align-items: center; /* vertically center the box with its text */
+  justify-content: flex-start; /* left-align the row */
   gap: 6px;
+  width: 100%; /* fill the list width so the WHOLE row is clickable */
+  padding: 1px 0; /* tighten vertical spacing */
+  text-align: left;
   font-size: 12px;
-  font-weight: normal;
+  font-weight: 400; /* regular weight, not the heavy bold */
   color: #111;
   cursor: pointer;
 }
 
-.checkbox-row input {
+.filter-panel .checkbox-row input {
   margin: 0;
   flex: 0 0 auto;
 }
@@ -319,22 +330,95 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.3);
 }
 
-/* ---- "Currently hiring" feature ---- */
+/* ---- Layer sections (the panel organized as toggleable map layers) ---- */
 
-/* The hiring controls in the filter panel, set off by a top rule so they read
-   as a distinct layer above the four crew filters. */
-.hiring-filter {
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* Each layer is a collapsible <details>, styled as a distinct card so the panel
+   reads as a stack of layers — with room to drop in a third later (e.g.
+   Housing) as just another card. */
+.layer {
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+  background: #fafafa;
 }
 
-/* The toggle is a horizontal checkbox + wrapping label (unlike the stacked
-   filter labels above), so override the panel's default column layout. */
-.hiring-filter .hiring-toggle {
+/* The clickable header: caret + layer name (fills the width) + an on/off switch
+   or a "base" tag on the right. */
+.layer > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #222;
+}
+.layer > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Leading caret that flips when the section opens. */
+.layer > summary::before {
+  content: "▸";
+  color: #888;
+  font-size: 10px;
+  width: 10px;
+  flex: 0 0 auto;
+}
+.layer[open] > summary::before {
+  content: "▾";
+}
+
+.layer-title {
+  flex: 1;
+}
+
+/* The "base" tag on the always-on Crews layer (which has no on/off switch). */
+.layer-base-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #777;
+  background: #ececec;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* The layer on/off switch (Hiring). Its click is stopped from reaching the
+   <summary> so toggling the layer never expands/collapses the section. */
+.layer-switch {
+  display: inline-flex;
+  align-items: center;
+}
+.layer-switch input {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* The layer's controls, revealed when the section is open. */
+.layer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 9px 9px;
+}
+
+/* Honest per-layer data-source / freshness label. */
+.layer-source {
+  font-size: 11px;
+  color: #666;
+}
+.layer-source-muted {
+  font-style: italic;
+}
+
+/* ---- "Currently hiring" controls (inside the Hiring layer) ---- */
+
+/* The "only crews hiring nearby" sub-filter: a horizontal checkbox + wrapping
+   label, overriding the panel's default stacked-label layout. */
+.filter-panel .hiring-toggle {
   flex-direction: row;
   align-items: flex-start;
   gap: 6px;
@@ -344,20 +428,15 @@ body {
   cursor: pointer;
 }
 
-.hiring-filter .hiring-toggle input {
+.filter-panel .hiring-toggle input {
   margin: 2px 0 0;
   flex: 0 0 auto;
 }
 
-/* The "updated <date>" line — small and quiet, but present so freshness is
-   always visible (honest framing). */
-.hiring-note {
-  font-size: 11px;
-  color: #666;
-}
-
-.hiring-note-muted {
-  font-style: italic;
+/* When the layer is off, the sub-filter is disabled — grey it out so it reads
+   as inactive rather than broken. */
+.filter-panel .hiring-toggle input:disabled + span {
+  color: #aaa;
 }
 
 /* Shown when the toggle is on but nothing matches — reads as "none right now",

@@ -84,6 +84,13 @@ function crewTypeIconHtml(t) {
   return `<span class="type-marker-inner">${main}${badge}</span>`;
 }
 
+// Display helper: turn an UPPERCASE name like "NEW MEXICO" into title case
+// ("New Mexico") for labels. This only changes what's SHOWN — filtering still
+// uses the original uppercase value, which is how `state` is stored in the data.
+function titleCase(s) {
+  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function CrewMap() {
   const [crews, setCrews] = useState([]);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "error"
@@ -95,6 +102,10 @@ export default function CrewMap() {
   // crews and deliberately NON-blocking: if the jobs read fails, the crew map
   // still works — the hiring toggle just shows an empty state.
   const [jobs, setJobs] = useState([]);
+  // Is the Hiring LAYER enabled? On by default so rings show on load exactly as
+  // before. Turning it off hides the rings, the popup jobs, and disables the
+  // "hiring nearby" sub-filter — a clean layer on/off, separate from that filter.
+  const [hiringLayerOn, setHiringLayerOn] = useState(true);
 
   // Build one Leaflet DivIcon per crew type ONCE and reuse it for every marker
   // of that type (making 440 icons individually would be wasteful). L.divIcon
@@ -222,8 +233,10 @@ export default function CrewMap() {
   // we filter on; the label is what the user sees. State/crew-type labels are
   // just the value; regions get a short label (e.g. "R1 · Northern") from the
   // shared REGIONS config, and appear in R1..R6 order.
+  // value stays UPPERCASE (that's what we filter on, matching crew.state);
+  // only the label is prettified for display.
   const stateOptions = useMemo(
-    () => states.map((s) => ({ value: s, label: s })),
+    () => states.map((s) => ({ value: s, label: titleCase(s) })),
     [states]
   );
   const regionOptions = useMemo(
@@ -275,15 +288,16 @@ export default function CrewMap() {
         if (!matchesAny) return false;
       }
 
-      // "Currently hiring" toggle: when on, keep only crews that have at least
-      // one open job within 50 mi. Crews with no nearby job drop out.
-      if (filters.hiringNearby && !nearbyJobsByCrew[crew.id]) {
+      // "Hiring nearby" sub-filter: when the Hiring layer is on AND this filter
+      // is checked, keep only crews with at least one open job within 50 mi.
+      // If the layer is off, this never narrows (the overlay isn't active).
+      if (hiringLayerOn && filters.hiringNearby && !nearbyJobsByCrew[crew.id]) {
         return false;
       }
 
       return true;
     });
-  }, [crews, filters, nearbyJobsByCrew]);
+  }, [crews, filters, nearbyJobsByCrew, hiringLayerOn]);
 
   // Toggle one value in a multi-select facet (state / region / crewType):
   // add it if it's not checked, remove it if it is.
@@ -330,8 +344,10 @@ export default function CrewMap() {
             onModeChange={setMode}
             hasJobs={jobs.length > 0}
             jobsUpdatedLabel={jobsUpdatedLabel}
+            hiringLayerOn={hiringLayerOn}
+            onHiringLayerChange={setHiringLayerOn}
           />
-          <Legend mode={mode} showHiring={jobs.length > 0} />
+          <Legend mode={mode} showHiring={hiringLayerOn && jobs.length > 0} />
         </>
       )}
 
@@ -364,9 +380,12 @@ export default function CrewMap() {
                 by the crew's type (lib/crewTypes.js). DivIcons are HTML, so they
                 also sidestep the missing-image problem. */}
         {visibleCrews.map((crew) => {
-          // Open jobs within 50 mi of this crew (undefined if none). Drives both
-          // the amber ring and the list shown in the popup.
-          const nearbyJobs = nearbyJobsByCrew[crew.id];
+          // Open jobs within 50 mi of this crew (undefined if none, or if the
+          // Hiring layer is turned off). Drives both the amber ring and the list
+          // shown in the popup — so toggling the layer off removes both at once.
+          const nearbyJobs = hiringLayerOn
+            ? nearbyJobsByCrew[crew.id]
+            : undefined;
           const position = [crew.latitude, crew.longitude];
 
           // The hiring ring: a separate, non-interactive CircleMarker drawn

@@ -49,6 +49,17 @@ ARCHITECTURE.md for the decisions.
       links; "updated {date}" freshness label + empty states.
       Verified: 90/440 crews light up; Redding/Flagstaff/Bishop ringed.
 
+## Panel UI: layers refactor + fixes — ✅ DONE
+- [x] Reorganized the control panel into collapsible **layer sections**
+      (reusable `LayerSection`): **Crews** = always-on base layer; **Hiring** =
+      toggleable overlay. Map stays the landing page (no tabs/pages). A future
+      layer (e.g. Housing) is a clean add. See ARCHITECTURE.md decision.
+- [x] Fixed multi-select dropdown layout: checkbox + label now inline on one
+      left-aligned, fully-clickable row (out-specified the panel's stacked-label
+      rule); regular weight; tighter spacing.
+- [x] State filter labels now display title-case ("California") while filtering
+      still uses the uppercase value.
+
 ## Next up (Phase 1 CORE still open)
 - [ ] Verify mobile usability (map + filter panel + popup on a phone screen)
 - [ ] Deploy to Vercel — swap in the new `sb_publishable_` key as
