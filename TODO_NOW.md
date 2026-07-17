@@ -60,7 +60,10 @@ ARCHITECTURE.md for the decisions.
 - [x] State filter labels now display title-case ("California") while filtering
       still uses the uppercase value.
 
+## Deploy + key migration — ✅ DONE
+- [x] Deployed to Vercel — **live at https://crew-map-five.vercel.app**
+- [x] Key migration complete: app runs on the new `sb_publishable_` key
+      (`NEXT_PUBLIC_SUPABASE_ANON_KEY`); the old legacy keys are disabled.
+
 ## Next up (Phase 1 CORE still open)
 - [ ] Verify mobile usability (map + filter panel + popup on a phone screen)
-- [ ] Deploy to Vercel — swap in the new `sb_publishable_` key as
-      `NEXT_PUBLIC_SUPABASE_ANON_KEY`, then disable the old legacy keys.
