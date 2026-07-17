@@ -110,21 +110,24 @@ at $0.
   `TROUTLAKE`→`TROUT LAKE`), fixed in `crews_cleaned.json` and filled in
   `crews_with_coords.json`. `still_missing.csv` is now empty (header only).
 
-### Phase 1 — The product  · CORE · ⬜ NOT STARTED
+### Phase 1 — The product  · CORE · ✅ LIVE (1 DoD item remaining)
 - **Goal:** opening the URL immediately loads the interactive map (no
   homepage/login) with every crew as a pin from Supabase; the four filters are
   present on load and narrow the pins; clicking a pin shows crew details;
   mobile-usable.
+- **Deployed:** live at **https://crew-map-five.vercel.app**, served from
+  Supabase via the public `sb_publishable_` key (legacy keys disabled).
 - **Definition of done (test the whole flow, no intermediate pages):**
-  1. Load the site URL → an interactive US map appears immediately (no
+  1. ✅ Load the site URL → an interactive US map appears immediately (no
      homepage, splash, or login).
-  2. All crews (with coords) show as pins, loaded from Supabase.
-  3. State / crew type / housing / region filter controls are visible on first
+  2. ✅ All crews (with coords) show as pins, loaded from Supabase.
+  3. ✅ State / crew type / housing / region filter controls are visible on first
      load and narrow the visible pins when used (crew type = case-insensitive
      "contains").
-  4. Clicking a pin shows that crew's details: forest, district, town,
+  4. ✅ Clicking a pin shows that crew's details: forest, district, town,
      resource, housing, website link (only if present), notes (only if present).
-  5. Works on a phone-sized screen.
+  5. ⬜ Works on a phone-sized screen. ← **only remaining item** (mobile
+     verification still to do).
 
 ### Phase 2 — Polish  · ICING · ⬜ NOT STARTED
 - **Goal:** make it nicer without changing the core flow.
@@ -166,9 +169,12 @@ at $0.
 
 - **Phase 0: ✅ done.** `crews_with_coords.json` written, **440/440 geocoded**;
   `still_missing.csv` empty.
-- **Phase 1: ✅ map + filters + popup live.** Next.js app, Supabase `crews` table
-  (440 rows), Leaflet/OSM map as the landing page, all four filters, and the
-  detail popup all work. **Remaining CORE:** mobile verification + Vercel deploy.
+- **Phase 1: ✅ deployed & live** at **https://crew-map-five.vercel.app**. Next.js
+  app on Vercel, Supabase `crews` table (440 rows) read via the public
+  `sb_publishable_` key (legacy keys disabled), Leaflet/OSM map as the landing
+  page, all four filters, and the detail popup all work. Control panel is
+  organized as layers (Crews base + Hiring overlay). **Remaining CORE:** just the
+  mobile-usability check (DoD item 5).
 - **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
   `refresh_jobs.py`, 32-row `jobs` table) and the map layer (proximity rings,
   hiring toggle, jobs-in-popup) both shipped and verified. Legacy service_role
