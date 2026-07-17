@@ -237,6 +237,17 @@ body {
   font-weight: 600;
   color: #444;
   margin-bottom: 4px;
+  /* Button resets so the <button> title looks exactly like the old <div> on
+     desktop (the button exists only so it's tappable to collapse on mobile). */
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: default;
 }
 
 .legend-row {
@@ -514,4 +525,178 @@ body {
   margin-top: 6px;
   font-size: 12px;
   color: #666;
+}
+
+/* ==========================================================================
+   RESPONSIVE — narrow screens only (phones). Desktop is deliberately untouched:
+   every layout change lives inside the media query below. Above it, we only
+   HIDE the mobile-only elements so they never appear on desktop.
+   ========================================================================== */
+
+/* Mobile-only elements — hidden on desktop (shown again inside the media query). */
+.mobile-controls,
+.mobile-scrim,
+.panel-mobile-header,
+.legend-toggle-caret {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ---- Filter panel → dismissible drawer ---- */
+
+  /* The compact bar (Filters button + count) shown when the drawer is closed. */
+  .mobile-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+  }
+  .mobile-filters-btn {
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 14px;
+    min-height: 44px; /* finger-sized tap target */
+    border: none;
+    border-radius: 8px;
+    background: #b91c1c;
+    color: #fff;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+  }
+  .mobile-count {
+    background: white;
+    color: #111;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+    font-family: system-ui, sans-serif;
+    white-space: nowrap;
+  }
+
+  /* Hide the panel by default on mobile; show it as a left drawer when open. */
+  .filter-panel {
+    display: none;
+  }
+  .filter-panel.is-open {
+    display: flex;
+    top: 0;
+    left: 0;
+    width: 85vw;
+    max-width: 330px;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    z-index: 2000; /* above the scrim */
+    padding: 10px 12px;
+  }
+
+  /* Dim the map behind the open drawer; tapping it closes (handler in JSX). */
+  .mobile-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1900;
+  }
+
+  /* Drawer header with the close (✕) button. */
+  .panel-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #eee;
+  }
+  .panel-close {
+    border: none;
+    background: transparent;
+    color: #555;
+    font-size: 20px;
+    line-height: 1;
+    min-width: 44px;
+    min-height: 44px; /* finger-sized */
+    cursor: pointer;
+  }
+
+  /* ---- Finger-sized tap targets throughout the panel ---- */
+
+  /* 16px on real form controls prevents iOS from auto-zooming on focus. */
+  .filter-panel select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .checkbox-dropdown > summary,
+  .layer > summary {
+    font-size: 15px;
+    min-height: 44px;
+  }
+  .filter-panel .checkbox-row {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 6px 2px;
+  }
+  .filter-panel input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  .layer-switch input {
+    width: 22px;
+    height: 22px;
+  }
+  .filter-panel .hiring-toggle {
+    font-size: 15px;
+  }
+  .filter-clear {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  /* Taller lists now that the drawer is full-height. */
+  .checkbox-list {
+    max-height: 42vh;
+  }
+
+  /* ---- Legend → collapsible, collapsed by default ---- */
+  .legend {
+    bottom: 10px;
+    max-width: 60vw;
+  }
+  /* Hide the rows until the user taps the title to expand. */
+  .legend .legend-body {
+    display: none;
+  }
+  .legend.legend--open .legend-body {
+    display: block;
+  }
+  .legend-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    margin-bottom: 0;
+    cursor: pointer;
+  }
+  .legend-toggle-caret {
+    display: inline-block;
+    font-size: 11px;
+    color: #666;
+  }
+
+  /* ---- Crew popups stay within the screen edges ---- */
+  /* Leaflet sets an inline width on the content; override so it wraps to fit. */
+  .leaflet-popup-content {
+    width: auto !important;
+    max-width: 76vw;
+  }
+  .crew-popup {
+    max-width: 76vw;
+  }
 }

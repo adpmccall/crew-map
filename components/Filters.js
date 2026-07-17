@@ -101,6 +101,8 @@ export default function Filters({
   jobsUpdatedLabel, // e.g. "Jul 17, 2026" — when the jobs data was last refreshed
   hiringLayerOn, // boolean — is the Hiring layer enabled (rings + sub-filter active)?
   onHiringLayerChange, // (on) => void  — turn the whole Hiring layer on/off
+  isOpen, // MOBILE ONLY: is the drawer open? (desktop ignores this — always shown)
+  onClose, // MOBILE ONLY: () => void — close the drawer
 }) {
   // The "hiring nearby" sub-filter is on and enabled, but nothing matches → show
   // a clear "nothing right now" message so it reads as empty, not broken.
@@ -108,7 +110,20 @@ export default function Filters({
     values.hiringNearby && hasJobs && hiringLayerOn && shownCount === 0;
 
   return (
-    <div className="filter-panel">
+    <div className={`filter-panel${isOpen ? " is-open" : ""}`}>
+      {/* MOBILE ONLY (hidden on desktop): drawer header with a close button. */}
+      <div className="panel-mobile-header">
+        <span>Filters</span>
+        <button
+          type="button"
+          className="panel-close"
+          onClick={onClose}
+          aria-label="Close filters"
+        >
+          ✕
+        </button>
+      </div>
+
       <div className="filter-count">
         Showing <strong>{shownCount}</strong> of {totalCount} crews
       </div>

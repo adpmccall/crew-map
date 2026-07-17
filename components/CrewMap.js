@@ -106,6 +106,10 @@ export default function CrewMap() {
   // before. Turning it off hides the rings, the popup jobs, and disables the
   // "hiring nearby" sub-filter — a clean layer on/off, separate from that filter.
   const [hiringLayerOn, setHiringLayerOn] = useState(true);
+  // MOBILE ONLY: is the filter drawer open? Starts closed so the map is the
+  // dominant thing on a phone. On desktop this is ignored — CSS keeps the panel
+  // always visible there — so desktop behavior is unchanged.
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 
   // Build one Leaflet DivIcon per crew type ONCE and reuse it for every marker
   // of that type (making 440 icons individually would be wasteful). L.divIcon
@@ -330,6 +334,34 @@ export default function CrewMap() {
       )}
       {status === "ready" && (
         <>
+          {/* MOBILE ONLY (hidden on desktop via CSS): a compact bar with a
+              "Filters" button + the live crew count, shown when the drawer is
+              closed. Keeps the map dominant while the count (filter feedback)
+              stays visible. */}
+          {!mobilePanelOpen && (
+            <div className="mobile-controls">
+              <button
+                type="button"
+                className="mobile-filters-btn"
+                onClick={() => setMobilePanelOpen(true)}
+                aria-expanded={false}
+              >
+                ☰ Filters
+              </button>
+              <span className="mobile-count">
+                Showing {visibleCrews.length} of {crews.length}
+              </span>
+            </div>
+          )}
+
+          {/* Tap-to-close backdrop behind the open drawer (mobile only). */}
+          {mobilePanelOpen && (
+            <div
+              className="mobile-scrim"
+              onClick={() => setMobilePanelOpen(false)}
+            />
+          )}
+
           <Filters
             stateOptions={stateOptions}
             regionOptions={regionOptions}
@@ -346,6 +378,8 @@ export default function CrewMap() {
             jobsUpdatedLabel={jobsUpdatedLabel}
             hiringLayerOn={hiringLayerOn}
             onHiringLayerChange={setHiringLayerOn}
+            isOpen={mobilePanelOpen}
+            onClose={() => setMobilePanelOpen(false)}
           />
           <Legend mode={mode} showHiring={hiringLayerOn && jobs.length > 0} />
         </>

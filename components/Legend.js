@@ -6,6 +6,7 @@
 //   - "type":   a symbol per crew type (matches the DivIcon markers)
 // It reads the same config the pins use, so the legend always matches the map.
 
+import { useState } from "react";
 import { REGIONS } from "../lib/regions";
 import { CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
 
@@ -41,34 +42,55 @@ function HiringLegendRow({ show }) {
 }
 
 export default function Legend({ mode, showHiring }) {
-  if (mode === "type") {
-    return (
-      <div className="legend">
-        <div className="legend-title">Crew type</div>
-        {[...CREW_TYPE_SYMBOLS, OTHER_TYPE].map((t) => (
+  // Collapse state is for MOBILE only (starts collapsed there). On desktop, CSS
+  // keeps the body always visible and hides the caret, so this has no visible
+  // effect — desktop behavior is unchanged.
+  const [open, setOpen] = useState(false);
+
+  const title = mode === "type" ? "Crew type" : "Region";
+
+  // The rows differ by mode; the surrounding structure (title + body) is shared
+  // so the collapse behavior works the same in both modes.
+  const rows =
+    mode === "type"
+      ? [...CREW_TYPE_SYMBOLS, OTHER_TYPE].map((t) => (
           <div key={t.key} className="legend-row">
             <span className="legend-symbol">
               <TypeSymbol t={t} />
             </span>
             <span>{t.label}</span>
           </div>
-        ))}
+        ))
+      : REGIONS.map((r) => (
+          <div key={r.region} className="legend-row">
+            <span
+              className="legend-swatch"
+              style={{ backgroundColor: r.color }}
+            />
+            <span>{r.label}</span>
+          </div>
+        ));
+
+  return (
+    <div className={`legend${open ? " legend--open" : ""}`}>
+      {/* Tapping the title expands/collapses on mobile; the caret only shows
+          there. On desktop the title looks and behaves as before. */}
+      <button
+        type="button"
+        className="legend-title"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span className="legend-toggle-caret" aria-hidden="true">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+
+      <div className="legend-body">
+        {rows}
         <HiringLegendRow show={showHiring} />
       </div>
-    );
-  }
-
-  // Default: region mode.
-  return (
-    <div className="legend">
-      <div className="legend-title">Region</div>
-      {REGIONS.map((r) => (
-        <div key={r.region} className="legend-row">
-          <span className="legend-swatch" style={{ backgroundColor: r.color }} />
-          <span>{r.label}</span>
-        </div>
-      ))}
-      <HiringLegendRow show={showHiring} />
     </div>
   );
 }
