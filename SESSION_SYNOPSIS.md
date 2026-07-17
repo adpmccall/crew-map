@@ -17,108 +17,103 @@ landing page.** Viewing/searching is always login-free.
 ## The stack (all free, no paid keys)
 
 - **Frontend:** Next.js (React), deployed on **Vercel** (free tier).
-- **Database + API:** **Supabase** (hosted Postgres that auto-generates a REST
-  API, so we don't write a backend). Free tier, no credit card.
+  **Live at https://crew-map-five.vercel.app.**
+- **Database + API:** **Supabase** (hosted Postgres + auto REST API). Free tier.
 - **Map:** **Leaflet** + **OpenStreetMap** tiles (no API key, no signup).
-- **Geocoding:** **OpenStreetMap Nominatim**, run once locally at build time
-  (not in the live app).
+- **Geocoding:** **OpenStreetMap Nominatim**, run once locally at build time.
+- **Jobs data:** **USAJOBS REST API** — a *build-time* source pulled by a local
+  script (`refresh_jobs.py`) into Supabase; the live app never calls it. Free
+  key. Does NOT add a runtime service (app still talks only to Supabase + OSM).
 
 ## What's DONE
 
 ### Phase 0 — Data ✅
-- **Data cleaned:** 440 Forest Service crew records in `crews_cleaned.json`
-  (12 fields each). Housing normalized to YES/NO/blank, an Oklahoma state typo
-  fixed, and the `website` field recovered for 371/440 crews.
-- **Geocoded 440/440:** `geocode.py` switched from the US Census geocoder to
-  **Nominatim**, producing **`crews_with_coords.json`** with latitude/longitude
-  for every crew. The 3 towns that failed were spacing typos (`CAVECREEK`,
-  `BRIDGERVILLE`, `TROUTLAKE`) — fixed and filled. `still_missing.csv` is empty.
-- **Supabase table created:** `schema.sql` run in Supabase SQL Editor. Table
-  has 12 fields + auto `id`. RLS enabled with public-read policy. Two GRANTs
-  required and applied:
-  - `GRANT ALL ON public.crews TO service_role;` (for the import script)
-  - `GRANT SELECT ON public.crews TO anon, authenticated;` (for the public app)
-- **440 rows imported:** `import_to_supabase.py` run successfully. Script was
-  updated during this session to handle Supabase's new `sb_secret_` key format
-  and to print verbose error messages on failure.
+- **440 crews cleaned + geocoded** (`crews_cleaned.json` → Nominatim →
+  `crews_with_coords.json`). `still_missing.csv` empty.
+- **Supabase `crews` table** created (`schema.sql`), RLS public-read, explicit
+  GRANTs (`select` to anon/authenticated, `all` to service_role), 440 rows
+  imported via `import_to_supabase.py`.
 
-### GitHub ✅
-- Repo live at `github.com/adpmccall/crew-map` (public).
-- `.gitignore` covers `.env`, `.env.local`, `node_modules/`, `.next/`,
-  `__pycache__/`, `.DS_Store`, `dev-server.log`, `.claude/settings.local.json`.
-- **github-manager subagent** created at `.claude/agents/github-manager.md` —
-  handles all git/GitHub operations so Tone Dog doesn't have to. Has bash
-  access. Contains explicit safety rules (never commit secrets, never
-  force-push main). Note: must be spawned in a **fresh Claude Code session**
-  to be recognized (session registry loads at startup).
-- Two commits pushed:
-  1. `Initial commit — Phase 0 complete: data cleaned, geocoded, schema ready`
-  2. `Add Next.js + Leaflet map scaffold and schema GRANT fix`
+### Phase 1 — The product ✅ LIVE (1 item left)
+- Next.js App Router app (plain JS, Next 14). **Map is the landing page** — no
+  homepage/splash/login. Leaflet + OSM; `CircleMarker` pins to avoid bundler
+  icon issues.
+- All 440 crews load from Supabase via the **public key only**.
+- Two symbolize modes: **Region (color)** and **Crew type (symbol)** with a
+  matching legend. Four filters (State, Region, Crew type, Housing) as
+  multi-select checkbox dropdowns; live "Showing X of 440" count.
+- Click popup with crew details (forest, district, town/state, resource, region,
+  housing, website when present).
+- **Deployed to Vercel** (live URL above).
+- **Only remaining Phase 1 item:** mobile-usability verification (see below).
 
-### Phase 1 — Frontend (largely complete) ✅
-- **Next.js app scaffolded:** App Router, plain JavaScript (no TypeScript),
-  Next.js 14.2.35, React 18.
-- **Map is the landing page:** `app/page.js` renders only the map — no
-  homepage, splash, or login.
-- **Leaflet + OSM tiles:** Free, no API key. `react-leaflet` used as the React
-  wrapper. Markers use `CircleMarker` to avoid Leaflet's default icon loading
-  issues with bundlers.
-- **All 440 crews load from Supabase** via the public anon key only. Service
-  role key never appears in app code.
-- **Regional color coding:** Each of the 6 USFS regions (R1–R6) has a distinct
-  color. Legend displayed on the map.
-- **Click popup:** Clicking a pin shows crew name, forest, town/state, crew
-  type, region, housing availability, and website (clickable link).
-- **Filter controls:** State, Region, Crew Type, Housing filters visible on
-  first load.
-- **Zoom controls** repositioned to bottom-right to avoid overlapping the
-  filter panel.
-- **Multi-select checkboxes** for State, Region, and Crew Type were just
-  requested — may be complete or in progress; verify on resume.
+### Phase 2.5 — "Currently hiring" (USAJOBS) ✅ shipped this session
+- **Backend:** `jobs_schema.sql` (a `jobs` table, public-read RLS, grants,
+  composite upsert key `announcement_number,town,state`). `refresh_jobs.py`
+  pulls open postings in **series 0456 + 0462**, drops national-announcement
+  noise (>8 duty locations), expands each posting into one row per duty-station
+  town, geocodes via Nominatim (cached in `job_geocache.json`), and **upserts**
+  into `jobs` using the secret key (local only). Re-runnable; **won't wipe the
+  table on an empty/bad pull**; prunes postings that have closed. `jobs`
+  populated (32 rows at last run).
+- **Map layer:** browser-side proximity match (`lib/proximity.js`, haversine,
+  **50-mi radius**). Crews with an open job within 50 mi get an **amber ring**
+  (works in both symbolize modes). A **"hiring nearby" filter** narrows to those
+  crews. The popup lists nearby postings (≤5, closest first) with
+  **Apply-on-USAJOBS** links. Honest **"updated {date}"** freshness label + empty
+  states. Verified against live data: **90/440 crews light up.**
 
-### Subagents ✅
-- **code-reviewer** — `.claude/agents/code-reviewer.md` — read-only (Read,
-  Grep, Glob). Reviews for correctness, beginner-friendliness, and adherence
-  to the plan. Flags $0 / map-is-landing / no-login violations.
-- **github-manager** — `.claude/agents/github-manager.md` — bash access.
-  Handles all git/GitHub operations. Must be used in a fresh session to spawn.
+### Supabase key migration ✅
+- The original **legacy `service_role` key was exposed** (pasted into chat) and
+  has been **rotated**. Migrated to Supabase's new key system: **`sb_secret_`**
+  for the local script, **`sb_publishable_`** for the app. **Legacy keys are
+  disabled.** Scripts handle both key formats (JWT `eyJ…` vs `sb_…`).
 
-### Node.js installed ✅
-- Node.js v24.18.0 and npm 11.16.0 installed via the official nodejs.org
-  `.pkg` installer. No Homebrew (not installed on this machine).
+### Control panel: layers refactor + UI fixes ✅
+- Panel reorganized into collapsible **layer sections** (reusable
+  `LayerSection`): **Crews** = always-on base layer; **Hiring** = toggleable
+  overlay. No tabs/pages — map stays the landing page. Built so a future
+  **Housing** layer is a clean addition.
+- Fixed the multi-select dropdown layout (checkbox + label inline on one
+  left-aligned, fully-clickable row; regular weight; tighter spacing).
+- **State** filter labels now display title-case ("California") while filtering
+  still uses the uppercase value.
 
-## Key gotchas resolved this session
+### Mobile responsive ⚠️ built, NOT yet verified
+- Narrow-screen (`<=768px`) responsive pass; **desktop untouched** (all changes
+  gated inside a media query). Filter panel collapses into a dismissible drawer
+  (Filters button + scrim); legend collapsible (collapsed by default on mobile);
+  crew count stays visible when the panel is closed; finger-sized tap targets;
+  popups constrained to fit. **Compiles cleanly but has NOT been tested at
+  ~390px in a browser** — committed with an `[UNVERIFIED]` tag.
 
-- **Supabase 403 on import:** Two causes fixed:
-  1. `.env.local` had `/rest/v1/` appended to the project URL — must be bare
-     base URL only (`https://xxxx.supabase.co`).
-  2. Missing `GRANT ALL ON public.crews TO service_role` — run in SQL Editor.
-- **Supabase 403 on app (anon read):** Missing
-  `GRANT SELECT ON public.crews TO anon, authenticated` — added to `schema.sql`
-  and run in SQL Editor.
-- **Supabase new key format:** `sb_secret_...` keys must be sent in `apikey`
-  header only (not `Authorization: Bearer`), unlike old `eyJ...` JWT keys.
-  `import_to_supabase.py` updated to handle both formats.
-- **github-manager subagent registry:** Subagent definition files added
-  mid-session aren't picked up until a fresh session is started.
-- **Environment variables** don't persist between Terminal sessions — must
-  re-export `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` each time.
+### Tooling ✅
+- **github-manager** subagent handles all git ops (never commits secrets, never
+  force-pushes main). Used for every commit this session.
+- Node v24, npm 11. Repo pushed to GitHub (`main`), commits directly to `main`.
 
-## What's NEXT
+## Open items / What's NEXT
 
-- Verify multi-select checkboxes are working (may have been in progress at
-  session end)
-- Custom crew-type emoji/symbol markers — toggle between "color by region"
-  and "symbol by crew type" (IHC text, 🚒 engine, 🚁 helitack, ✈️
-  smokejumper, 🚁+R rappel)
-- **Deploy to Vercel** — get a live public URL (free tier, connect GitHub repo)
-- Phase 3 (future): user accounts, editing, RLS write rules
+- **Verify mobile at ~390px** (iPhone width) — the last Phase 1 CORE item. The
+  responsive work is committed but untested in a real browser.
+- **Automate `refresh_jobs.py` via GitHub Actions** (scheduled cron) so the jobs
+  table stays fresh without manual runs. Needs secrets stored as encrypted
+  Actions secrets.
+- **"Wildland Fire Handcrew Atlas" permission still pending** — the KMZ is
+  exploration-only and gitignored; do NOT import/merge until the creator says ok.
+- **Vercel Web Analytics** (free tier) — add before sharing the link widely.
+- **Housing layer** — the next big build; drops into the layers panel as another
+  overlay.
 
 ## Key safety rules
 
-- **`service_role` key is LOCAL IMPORT ONLY.** Never in app code, screenshots,
-  or git. Pass via environment variable only.
-- **App uses only the public `anon` key** via `NEXT_PUBLIC_` env vars.
+- **Secret key (`sb_secret_` / old `service_role`) is LOCAL SCRIPTS ONLY.** Never
+  in app code, screenshots, or git; pass via env var. (One leaked this session —
+  it was rotated. Don't paste keys into chat.)
+- **App uses only the public `sb_publishable_` key** via `NEXT_PUBLIC_` env vars.
 - **RLS stays public-read only** until Phase 3.
-- **$0 constraint:** Vercel + Supabase + Leaflet/OSM only. No paid keys.
-- **Map is the landing page:** No homepage, splash, or login gate to view.
+- **$0 constraint:** Vercel + Supabase + Leaflet/OSM (+ free USAJOBS/Nominatim at
+  build time). No paid keys.
+- **Map is the landing page:** no homepage, splash, or login gate to view.
+- Environment variables don't persist between Terminal sessions — re-export the
+  secret key when running local scripts.
