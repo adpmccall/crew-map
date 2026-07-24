@@ -296,39 +296,32 @@ body {
   justify-content: center;
 }
 
-.type-emoji {
-  font-size: 18px;
-  line-height: 1;
+/* SVG line glyphs (Engine, Helitack, Rappel, Smokejumper). The <svg> carries its
+   own 16px size + stroke color from lib/crewTypes.js; these rules just make sure
+   it lays out cleanly whether it's a map DivIcon or a legend row. */
+.type-svg,
+.type-svg-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.type-svg-wrap .type-svg {
+  display: block;
 }
 
-/* Text-label symbol, e.g. "IHC" for hotshot crews — a small readable chip. */
+/* Text-label symbol, e.g. "IHC" for hotshot crews — a small readable chip. The
+   background color is set inline from the crew type's own color (lib/crewTypes.js);
+   this value is just a fallback if that's ever missing. */
 .type-text {
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  background: #b91c1c;
+  background: #111827;
   padding: 1px 3px;
   border-radius: 3px;
   font-family: system-ui, sans-serif;
   white-space: nowrap;
-}
-
-/* Small corner badge used to distinguish Rappel (🚁 R) from Helitack (🚁). */
-.type-badge {
-  position: absolute;
-  top: -5px;
-  right: -7px;
-  width: 12px;
-  height: 12px;
-  background: #1f77b4;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 8px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: system-ui, sans-serif;
 }
 
 /* Neutral marker for crews that match none of the symbolized types. */

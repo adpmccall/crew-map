@@ -77,11 +77,13 @@ const HIRING_RING_OPTIONS = {
 // "symbol by crew type" mode). Mirrors how the Legend draws the same symbol.
 function crewTypeIconHtml(t) {
   if (t.dot) return '<span class="type-dot"></span>';
+  // Hotshot uses a small text chip; every other type is an SVG line glyph
+  // (the same string the Legend renders, so pins and legend always match).
+  // The chip's background is the type's own color, set inline.
   const main = t.text
-    ? `<span class="type-text">${t.text}</span>`
-    : `<span class="type-emoji">${t.emoji}</span>`;
-  const badge = t.badge ? `<span class="type-badge">${t.badge}</span>` : "";
-  return `<span class="type-marker-inner">${main}${badge}</span>`;
+    ? `<span class="type-text" style="background:${t.color}">${t.text}</span>`
+    : t.svg;
+  return `<span class="type-marker-inner">${main}</span>`;
 }
 
 // Display helper: turn an UPPERCASE name like "NEW MEXICO" into title case

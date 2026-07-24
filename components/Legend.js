@@ -17,11 +17,18 @@ function TypeSymbol({ t }) {
   return (
     <span className="type-marker-inner">
       {t.text ? (
-        <span className="type-text">{t.text}</span>
+        <span className="type-text" style={{ background: t.color }}>
+          {t.text}
+        </span>
       ) : (
-        <span className="type-emoji">{t.emoji}</span>
+        // t.svg is a trusted, hard-coded SVG string from lib/crewTypes.js (no
+        // user input), rendered here so the legend glyph is byte-for-byte the
+        // same markup the map draws.
+        <span
+          className="type-svg-wrap"
+          dangerouslySetInnerHTML={{ __html: t.svg }}
+        />
       )}
-      {t.badge && <span className="type-badge">{t.badge}</span>}
     </span>
   );
 }
