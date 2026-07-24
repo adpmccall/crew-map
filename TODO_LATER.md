@@ -36,6 +36,12 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
 - [ ] Performance pass with all ~440 pins
 
 ## Phase 3+ — Community features (ICING, DEFERRED) — not started
+- [ ] **Community contributions** — let users add/edit crews, with a
+      moderation/review workflow to police submissions (firefighters will want to
+      contribute). Requires Phase 3 auth. Design so every crew record carries a
+      `source` field (`usfs_official` / `handcrew_atlas` / `user_submitted`) —
+      provenance is the backbone of moderation. Viewing stays login-free; only
+      contributing needs an account.
 - [ ] Decide *who* may edit (no open write access)
 - [ ] Auth/accounts (editing only — viewing/search stays login-free)
 - [ ] Add / edit / submit crews
