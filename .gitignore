@@ -30,9 +30,13 @@ job_geocache.json
 # --- Third-party data pending permission (DO NOT COMMIT) ---
 # The "Wildland Fire Handcrew Atlas" KML/KMZ was exported from someone else's
 # Google My Maps. We don't have permission to use or publish it yet, so keep it
-# (and any extracted copies) out of the public repo while we wait to hear back.
+# (and any extracted copies) out of the public repo. Permission to USE the data
+# is now secured, but we don't republish the source file or raw extracts.
 *.kml
 *.kmz
+# Dry-run review CSVs derived from the Atlas (see MERGE_PLAN.md). Local review
+# artifacts, not product — keep out of git until the import is designed.
+merge_review_*.csv
 
 # --- Claude Code local (machine-specific) settings ---
 # Keep the shared subagent (.claude/agents/) tracked, but not local settings.
