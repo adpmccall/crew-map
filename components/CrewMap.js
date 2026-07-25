@@ -390,7 +390,13 @@ export default function CrewMap() {
             isOpen={mobilePanelOpen}
             onClose={() => setMobilePanelOpen(false)}
           />
-          <Legend mode={mode} showHiring={hiringLayerOn && jobs.length > 0} />
+          {/* `regions` is derived from the loaded crews, so the legend only
+              lists regions that actually have pins. */}
+          <Legend
+            mode={mode}
+            showHiring={hiringLayerOn && jobs.length > 0}
+            presentRegions={regions}
+          />
         </>
       )}
 

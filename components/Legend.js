@@ -48,7 +48,12 @@ function HiringLegendRow({ show }) {
   );
 }
 
-export default function Legend({ mode, showHiring }) {
+// `presentRegions` is the list of region values that actually appear in the
+// loaded crews. We show a region row ONLY when at least one crew has it —
+// otherwise adding a region to lib/regions.js (R8/R9/R10 were added for the
+// Atlas crews) would advertise coverage the map doesn't have. Falls back to
+// showing everything if the list is empty, so the legend is never blank.
+export default function Legend({ mode, showHiring, presentRegions = [] }) {
   // Collapse state is for MOBILE only (starts collapsed there). On desktop, CSS
   // keeps the body always visible and hides the caret, so this has no visible
   // effect — desktop behavior is unchanged.
@@ -68,7 +73,9 @@ export default function Legend({ mode, showHiring }) {
             <span>{t.label}</span>
           </div>
         ))
-      : REGIONS.map((r) => (
+      : REGIONS.filter(
+          (r) => presentRegions.length === 0 || presentRegions.includes(r.region)
+        ).map((r) => (
           <div key={r.region} className="legend-row">
             <span
               className="legend-swatch"
