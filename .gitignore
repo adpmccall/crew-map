@@ -26,6 +26,13 @@ build/
 fire_jobs_raw.json
 # Cache of geocoded job duty-station towns (proximity-matching dry-run).
 job_geocache.json
+# Cache of reverse-geocoded STATE per coordinate (atlas_import.py). Derived from
+# the Atlas coords; local cache so re-runs don't re-hit Nominatim.
+state_geocache.json
+# Pre-enrichment snapshot of the Supabase rows atlas_import.py was about to
+# touch, so the merge can be rolled back. Machine-local rollback state derived
+# from the database — not source, and not something to publish.
+atlas_import_backup.json
 
 # --- Third-party data pending permission (DO NOT COMMIT) ---
 # The "Wildland Fire Handcrew Atlas" KML/KMZ was exported from someone else's
