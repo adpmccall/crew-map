@@ -41,7 +41,12 @@ body {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 1000; /* above the map */
+  /* Above the map AND above the legend (which is z-index 1000 and, being later
+     in the DOM, would otherwise paint on top). The Crew type dropdown expands
+     downward far enough to reach the legend, and when it does the panel must
+     win — it's the thing the user is actively interacting with. Without this
+     the last two options sit behind the legend box and look missing. */
+  z-index: 1100;
   background: white;
   padding: 12px;
   border-radius: 8px;
@@ -132,7 +137,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1px; /* tight rhythm so more options fit before scrolling */
-  max-height: 200px;
+  /* Tall enough to show the whole curated crew-type list (14 options, ~245px)
+     without scrolling. It was 200px, which hid the last two — Suppression
+     Module and Fire Effects — below the fold, so the newest options were the
+     ones nobody could find. Keep this above the list's natural height if more
+     types are ever added. (Mobile overrides this to 42vh further down.) */
+  max-height: 300px;
   overflow-y: auto;
   border: 1px solid #eee;
   border-radius: 4px;
@@ -706,5 +716,11 @@ body {
   }
   .crew-popup {
     max-width: 76vw;
+    /* Leaflet sizes the popup to fit its content, and because links use
+       `word-break: break-all` the browser is free to wrap them absurdly narrow
+       — measured 137px on a 525px-wide screen, a third of the 76vw it was
+       allowed. A floor stops that collapse. `min()` keeps the floor below the
+       max-width on very small phones, so the two rules can never fight. */
+    min-width: min(240px, 76vw);
   }
 }
