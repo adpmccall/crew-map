@@ -110,7 +110,7 @@ at $0.
   `TROUTLAKE`→`TROUT LAKE`), fixed in `crews_cleaned.json` and filled in
   `crews_with_coords.json`. `still_missing.csv` is now empty (header only).
 
-### Phase 1 — The product  · CORE · ✅ LIVE (1 DoD item remaining)
+### Phase 1 — The product  · CORE · ✅ COMPLETE
 - **Goal:** opening the URL immediately loads the interactive map (no
   homepage/login) with every crew as a pin from Supabase; the four filters are
   present on load and narrow the pins; clicking a pin shows crew details;
@@ -126,8 +126,10 @@ at $0.
      "contains").
   4. ✅ Clicking a pin shows that crew's details: forest, district, town,
      resource, housing, website link (only if present), notes (only if present).
-  5. ⬜ Works on a phone-sized screen. ← **only remaining item** (mobile
-     verification still to do).
+  5. ✅ Works on a phone-sized screen — verified 2026-07-25 at 390px: filter
+     drawer opens/closes, count stays visible when closed, legend
+     collapses/expands, tap targets finger-sized, no horizontal overflow, and
+     popups fit (after a `min-width` fix that stopped them collapsing to ~137px).
 
 ### Phase 2 — Polish  · ICING · ⬜ NOT STARTED
 - **Goal:** make it nicer without changing the core flow.
@@ -173,8 +175,15 @@ at $0.
   app on Vercel, Supabase `crews` table (440 rows) read via the public
   `sb_publishable_` key (legacy keys disabled), Leaflet/OSM map as the landing
   page, all four filters, and the detail popup all work. Control panel is
-  organized as layers (Crews base + Hiring overlay). **Remaining CORE:** just the
-  mobile-usability check (DoD item 5).
+  organized as layers (Crews base + Hiring overlay). **All CORE items done** —
+  mobile verified at 390px on 2026-07-25.
+- **Phase 2.7 (Atlas region backfill): ✅ done.** 85 of 389 Atlas crews given a
+  `region` (52 exact + 19 fuzzy borrowed from the curated 440, plus 14 from an
+  explicit R8/R9/R10 table for forests we hold no curated crew for). 304 left
+  NULL on purpose — non-USFS units and rows with no forest name. R8/R9/R10 added
+  to the region palette; the legend only shows regions that actually have crews.
+  Same run cleaned 58 rows of CDATA/non-breaking-space artifacts.
+  See `region_backfill_dryrun.py` (matcher) and `region_backfill_commit.py`.
 - **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
   `refresh_jobs.py`, 32-row `jobs` table) and the map layer (proximity rings,
   hiring toggle, jobs-in-popup) both shipped and verified. Legacy service_role

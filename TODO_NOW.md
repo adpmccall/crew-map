@@ -22,11 +22,15 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
-## Phase 1 — remaining to finish CORE
-- [x] Detail popup on pin click: crew name (district), forest, town/state,
+## Phase 1 — CORE ✅ COMPLETE
+- [x] Detail popup on pin click: crew name, forest, town/state,
       crew type, region, housing, website link (when present)
-- [ ] Verify mobile usability (map + filter panel + popup on a phone screen)
-- [ ] Deploy to Vercel
+- [x] **Verify mobile usability** — verified 2026-07-25. Filter drawer
+      opens/closes, the crew count stays visible when the drawer is closed, the
+      legend collapses/expands, tap targets are finger-sized, and there is no
+      horizontal overflow. Popup width confirmed at a true 390px (iPhone) after
+      the `min-width` fix below. **Phase 1 is now fully done.**
+- [x] Deploy to Vercel (live at https://crew-map-five.vercel.app)
       (note: popup shows the user-requested fields; `notes` was not included —
       add later if wanted)
 
@@ -92,22 +96,45 @@ republished — it, the review CSVs, and `state_geocache.json` /
 - [x] Committed `atlas_schema.sql`, `atlas_import.py`, and the `.gitignore`
       additions; confirmed no third-party data or caches were committed.
 
-## Next up
-Phase 1 CORE first, then the two Atlas follow-ups.
+## Atlas follow-ups — ✅ DONE (UI has caught up with the merge)
+- [x] **Crew names + photos in the popup.** `CrewPopup.js` now titles each popup
+      with `crew_name`, falling back to district → forest → "Unnamed crew".
+      `photo_url` renders as a bounded image that hides itself if it fails to
+      load. **Known issue:** the Google My Maps photo URLs currently 404 (all
+      114 of them) — see TODO_LATER.
+- [x] **"Suppression Module" + "Fire Effects" added to the crew-type filter**,
+      each with its own SVG glyph and color in `lib/crewTypes.js` + the legend
+      (deep-teal droplet / olive magnifier). Colors were chosen by measuring
+      CIELAB deltaE against both palettes so nothing clashes across modes.
 
-- [ ] **Verify mobile usability** (map + filter panel + popup on a phone screen)
-      — the last Phase 1 CORE item, still open.
+## Phase 2.7 — Atlas region backfill — ✅ DONE (written + verified)
+Filled `region` for Atlas crews by matching their forest to our curated data,
+plus an explicit table for forests we hold no curated crew for.
+- [x] **`region_backfill_dryrun.py`** — the matcher, read-only, no write path at
+      all. Normalization started from `atlas_import.py` and was tuned (see the
+      note in the file): `national`/`forest`/`district` added as stopwords and
+      `mount`→`mt`, because the curated data mixes "GILA NF" with "PAYETTE
+      NATIONAL FOREST" and the mismatch was scoring correct pairs at 0.50.
+      Adds a hard non-USFS gate (BLM/NPS/BIA/TNC/state/county) and a
+      "distinctive token" rule so generic words like "river" can't carry a
+      match. Has a REGRESSION CHECK block naming the specific rows that were
+      previously wrong — keep it passing.
+- [x] **`region_backfill_commit.py`** — dry-run by default, `--commit` writes,
+      `--rollback` undoes; snapshots to `region_backfill_backup.json` (gitignored)
+      before the first write. Imports the matcher rather than copying it.
+- [x] **Ran + verified in Supabase: 85 of 389 assigned.**
+      R5 36 · R8 10 · R3 9 · R2 8 · R6 8 · R4 6 · R1 4 · R9 2 · R10 2.
+      Zero false positives. 304 correctly left NULL (113 non-USFS, 127 no forest
+      name, 64 state/tribal/county).
+- [x] **R8/R9/R10 added** to `lib/regions.js` with new colors; `Legend.js` is
+      gated to regions that actually have crews, so they only appear now that
+      data exists. (There is no Region 7 — the numbering really does skip.)
+- [x] **CDATA / non-breaking-space cleanup** — same script, phase 2. Found **58**
+      rows, not the 3 originally spotted: 3 with `<![CDATA[...]]>` wrappers and
+      55 with non-breaking spaces (which block line-wrapping and widened
+      popups). All 58 cleaned and verified; 3 were curated rows enriched by the
+      Atlas, so the write is guarded by id, not by source.
 
-### Atlas follow-ups (the merge landed in the DB; the UI hasn't caught up)
-- [ ] **Wire crew names + photos into the popup.** `crews` now has `crew_name`
-      and `photo_url`, but `components/CrewPopup.js` still titles each popup with
-      the ranger district — and its opening comment ("this dataset has no
-      dedicated crew name field") is now out of date. Use `crew_name` when
-      present, fall back to district → forest, and decide how/whether to display
-      `photo_url`. Heads-up: those photo URLs are Google My Maps-hosted and may
-      not be hotlink-stable long term.
-- [ ] **Add "Suppression Module" + "Fire Effects" to the crew-type filter.** The
-      import writes both labels, but the curated `CREW_TYPES` list in
-      `components/CrewMap.js` doesn't include them, so those crews can't be
-      filtered for. Also decide whether each needs a symbol in `lib/crewTypes.js`
-      + the legend, or should fall through to "Other."
+**Coverage caveat:** the Atlas brought in a handful of R8/R9/R10 crews. That is
+NOT real Eastern/Southern/Alaska coverage — see the "National coverage" item in
+`TODO_LATER.md` before treating this map as nationwide.

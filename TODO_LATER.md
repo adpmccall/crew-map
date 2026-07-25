@@ -19,6 +19,25 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
       addition, not a rewrite: a toggleable overlay with its own controls and its
       own source labeling, alongside the Crews base layer and the Hiring overlay.
 
+## Atlas photo URLs are dead (deferred — popup degrades gracefully)
+- [ ] **Investigate `atlas_import.py`'s `gx_media_links` extraction.** All 114
+      stored `photo_url` values fail to load — verified by load-testing them in
+      the browser. Every one contains a literal `*` in the path
+      (`.../hostedimage/m/*/3AE5a_...`), which looks like an unsubstituted
+      placeholder rather than a real Google My Maps image URL. Low priority:
+      `CrewPopup.js` hides an image that fails, so the popup already looks
+      correct — the photo feature is simply inert until this is fixed.
+
+## National coverage — the honest gap
+- [ ] **Consider genuinely expanding to national coverage** — source real
+      Eastern/Southern/Alaska USFS crew data (not just incidental Atlas
+      stragglers). The current 440 curated crews are **Western-only by design
+      (R1–R6)**. The Handcrew Atlas merge pulled in a handful of R8/R9/R10 crews
+      as a side effect, which is not the same as covering those regions: it
+      makes the map *look* national while the underlying data isn't. Either
+      source real data for those regions or be explicit in the UI about what the
+      map does and doesn't cover.
+
 ## Observability / sharing
 - [ ] Add Vercel Web Analytics (free tier) to track traffic — worth doing before
       sharing the link widely, so we can see if anyone actually uses it.
