@@ -25,8 +25,9 @@ load it before doing anything.
 3. Here is where we are:
    - The app is LIVE at https://crew-map-five.vercel.app (Next.js on Vercel,
      Supabase, Leaflet/OSM). The map IS the landing page (no homepage/login).
-   - Phase 0 (data) and Phase 1 (map + filters + popup + deploy) are DONE, except
-     one item: mobile usability has NOT been verified in a browser yet.
+   - Phase 0 (data) and Phase 1 (map + filters + popup + deploy + mobile) are
+     FULLY DONE. Mobile was verified in a browser at a true 390px. There is no
+     remaining CORE work — everything below is ICING or a decision to make.
    - Phase 2.5 "currently hiring" (USAJOBS) is DONE end-to-end:
      * Backend: jobs_schema.sql + refresh_jobs.py pull open fire jobs (series
        0456 + 0462), drop noise, geocode, and upsert into a public-read `jobs`
@@ -56,36 +57,73 @@ load it before doing anything.
        the pins still show.
      * Crew-type extraction introduced two NEW labels: "Suppression Module"
        and "Fire Effects".
+   - The Atlas UI catch-up is DONE: popups are titled with the real crew_name
+     (falling back district -> forest -> "Unnamed crew"), photo_url renders as a
+     bounded image that hides itself if it fails to load, and both new crew-type
+     labels are filterable with their own glyph + color in the legend. Blank
+     Forest/Location/Region rows are omitted rather than shown empty.
+   - Phase 2.7 "Atlas region backfill" is DONE and verified in Supabase:
+     * 85 of the 389 Atlas crews were given a `region` — 52 exact + 19 fuzzy
+       borrowed by matching their forest name to the curated 440, plus 14 from
+       an EXPLICIT R8/R9/R10 table for Eastern/Southern/Alaska forests we hold
+       no curated crew for (nothing to borrow from).
+     * 304 are deliberately still NULL: 113 non-USFS units (BLM/NPS/BIA/TNC/
+       state/county), 127 with no forest name at all, 64 state/tribal/county
+       agencies. NULL is the honest answer for these — do NOT try to "fix" it.
+     * region_backfill_dryrun.py is the matcher (read-only, no write path);
+       region_backfill_commit.py writes (dry-run default, --commit, --rollback)
+       and IMPORTS the matcher so the two can't drift. The dry-run has a
+       REGRESSION CHECK block naming rows an earlier buggy version got wrong —
+       keep it passing if you touch the matching.
+     * R8/R9/R10 were added to lib/regions.js; Legend.js is gated on which
+       regions actually have crews, so they only appear now that data exists.
+       (There is no Region 7 — the 6->8 jump is real, not a typo.)
+     * The same run cleaned 58 rows of CDATA / non-breaking-space artifacts left
+       in crew_name by the original Atlas import.
    - Supabase keys migrated to the new system: app uses the sb_publishable_ key,
      local scripts use the sb_secret_ key, and the old legacy keys are DISABLED.
    - The control panel was refactored into collapsible LAYERS (Crews = base,
      Hiring = toggleable overlay) — built so a Housing layer is a clean add.
-   - Mobile responsive CSS was added (drawer + collapsible legend + tap targets)
-     but is committed as [UNVERIFIED] — it has NOT been tested at ~390px.
 
-4. Immediate next steps (in priority order — confirm with me before starting):
-   a) VERIFY MOBILE at ~390px (iPhone width): filter drawer opens/closes, the
-      count stays visible when closed, the legend collapses/expands, tap targets
-      are finger-sized, and crew popups don't overflow. This is the last Phase 1
-      CORE item. Fix anything that's off, then mark it done in TODO_NOW.md +
-      ARCHITECTURE.md.
-   b) ATLAS FOLLOW-UP — wire crew names + photos into the popup. `crews` now has
-      crew_name and photo_url, but components/CrewPopup.js still titles each
-      popup with the ranger district, and its opening comment ("this dataset has
-      no dedicated crew name field") is now out of date. Use crew_name when
-      present, fall back to district -> forest, and decide how/whether to show
-      photo_url (those URLs are Google My Maps-hosted and may not be
-      hotlink-stable long term).
-   c) ATLAS FOLLOW-UP — add "Suppression Module" and "Fire Effects" to the
-      crew-type filter. The import writes both labels, but the curated
-      CREW_TYPES list in components/CrewMap.js doesn't include them, so those
-      crews can't be filtered for. Also decide whether each needs a symbol in
-      lib/crewTypes.js + the legend, or should fall through to "Other".
-   d) (Backlog, when ready) Automate refresh_jobs.py via GitHub Actions (cron),
-      with Supabase + USAJOBS creds as encrypted Actions secrets.
-   e) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link.
-   f) (Future big build) Add a Housing layer to the layers panel. Note the 389
-      Atlas rows have NULL housing, so they'll read as unknown.
+4. Open items (confirm with me before starting anything):
+
+   a) A DECISION, NOT A TASK — NATIONAL COVERAGE. Raise this with me; don't
+      just pick one and start coding. The Atlas merge pulled in a handful of
+      Eastern/Southern/Alaska crews, and they now render with their own R8/R9/
+      R10 legend colors. That makes the map LOOK nationwide when it isn't: the
+      curated 440 are Western-only (R1-R6) by design, and 14 stragglers are not
+      coverage of three regions. Two honest ways forward:
+        - source real R8/R9/R10 crew data so the coverage matches the legend, or
+        - be explicit in the UI about the Western-only scope (and consider
+          whether those regions should appear in the legend at all yet).
+      Whichever we choose, the map must not imply coverage it doesn't have.
+
+   b) FIX THE DEAD ATLAS PHOTO URLS. All 114 stored photo_url values fail to
+      load — verified by load-testing them in a browser. Every one contains a
+      literal `*` in the path (.../hostedimage/m/*/3AE5a_...), which looks like
+      an unsubstituted placeholder, so the bug is probably in atlas_import.py's
+      gx_media_links extraction rather than in the data. Low urgency because
+      CrewPopup.js hides an image that fails, so popups already look right —
+      the photo feature is just inert. Investigate the extraction, re-run the
+      import for photo_url only, and don't regress the graceful-hide behavior.
+
+   c) (Backlog) Automate refresh_jobs.py via GitHub Actions (cron), with
+      Supabase + USAJOBS creds as encrypted Actions secrets. The jobs table is
+      currently only as fresh as the last manual run.
+
+   d) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link
+      widely, so we can tell whether anyone actually uses it.
+
+   e) (Future big build) Add a Housing layer to the layers panel. The panel was
+      built as reusable LayerSections so this is an addition, not a rewrite.
+      Note the 389 Atlas rows have NULL housing, so they'll read as unknown.
+
+   f) (Maintenance, not urgent) Next.js is two majors behind (14.2.35) and
+      `npm audit` reports 2 high advisories via Next + its bundled postcss.
+      Assessed as NOT exploitable here — this app has no API routes,
+      middleware, Server Actions, next/image, rewrites or i18n; it's a
+      client-rendered map (ssr: false). Treat the upgrade as scheduled
+      maintenance, not an emergency, but don't leave it forever.
 
 5. Subagents available:
    - code-reviewer (.claude/agents/code-reviewer.md) — read-only, reviews code
@@ -102,7 +140,14 @@ load it before doing anything.
    - Map IS the landing page: no homepage, splash, or login to view.
    - RLS stays public-read only (no write policies until Phase 3).
    - Environment variables don't persist between Terminal sessions — re-export
-     the secret key if running refresh_jobs.py / import_to_supabase.py.
+     the secret key if running refresh_jobs.py / import_to_supabase.py /
+     region_backfill_commit.py.
+   - Practical consequence: Claude CANNOT run the write scripts itself. Its
+     shell state doesn't persist between commands, so the only way would be one
+     command containing the key, which would put the secret in the chat
+     transcript. Claude should hand you the exact command to run in your own
+     terminal, then verify the result with a read-only query using the PUBLIC
+     key. Don't work around this.
 
 Start by reading the files in step 1, then give me the short summary in step 2.
 ```
