@@ -34,7 +34,7 @@ landing page.** Viewing/searching is always login-free.
   GRANTs (`select` to anon/authenticated, `all` to service_role), 440 rows
   imported via `import_to_supabase.py`.
 
-### Phase 1 — The product ✅ LIVE (1 item left)
+### Phase 1 — The product ✅ COMPLETE
 - Next.js App Router app (plain JS, Next 14). **Map is the landing page** — no
   homepage/splash/login. Leaflet + OSM; `CircleMarker` pins to avoid bundler
   icon issues.
@@ -44,12 +44,14 @@ landing page.** Viewing/searching is always login-free.
 - Two symbolize modes: **Region (color)** and **Crew type (symbol)** with a
   matching legend. Four filters (State, Region, Crew type, Housing) as
   multi-select checkbox dropdowns; live "Showing X of N" count.
-- Click popup with crew details (forest, district, town/state, resource, region,
-  housing, website when present).
+- Click popup with crew details (crew name, forest, town/state, resource,
+  region, housing, website when present). Blank fields are omitted entirely
+  rather than rendered as empty rows.
 - **Deployed to Vercel** (live URL above).
-- **Only remaining Phase 1 item:** mobile-usability verification (see below).
+- **Every Phase 1 CORE item is done**, including mobile (verified at a true
+  390px — see below). Phase 1 needs nothing further.
 
-### Phase 2.5 — "Currently hiring" (USAJOBS) ✅ shipped this session
+### Phase 2.5 — "Currently hiring" (USAJOBS) ✅ DONE
 - **Backend:** `jobs_schema.sql` (a `jobs` table, public-read RLS, grants,
   composite upsert key `announcement_number,town,state`). `refresh_jobs.py`
   pulls open postings in **series 0456 + 0462**, drops national-announcement
@@ -83,13 +85,19 @@ landing page.** Viewing/searching is always login-free.
 - **State** filter labels now display title-case ("California") while filtering
   still uses the uppercase value.
 
-### Mobile responsive ⚠️ built, NOT yet verified
+### Mobile responsive ✅ VERIFIED at 390px
 - Narrow-screen (`<=768px`) responsive pass; **desktop untouched** (all changes
   gated inside a media query). Filter panel collapses into a dismissible drawer
   (Filters button + scrim); legend collapsible (collapsed by default on mobile);
   crew count stays visible when the panel is closed; finger-sized tap targets;
-  popups constrained to fit. **Compiles cleanly but has NOT been tested at
-  ~390px in a browser** — committed with an `[UNVERIFIED]` tag.
+  popups constrained to fit.
+- **Verified in a browser (2026-07-25):** drawer opens/closes, count stays
+  visible when closed, legend collapses/expands, tap targets are finger-sized,
+  and there is no horizontal overflow. Confirmed at a true 390px.
+- One real bug was found and fixed during that check: popups were collapsing to
+  **~137px** (a third of the 76vw they were allowed) because `min-width` was 0
+  and `word-break: break-all` let links wrap arbitrarily narrow. A
+  `min-width: min(240px, 76vw)` floor inside the mobile media query fixes it.
 
 ### Phase 2.6 — Handcrew Atlas merge ✅ DONE (verified in Supabase)
 **Permission to USE the Atlas data is secured.** The source KMZ is still *not*
@@ -121,46 +129,113 @@ republished — it stays gitignored, and so do the review CSVs and caches.
   - **Crew type extracted from crew names** into our exact resource labels
     (IHC→Hotshot Crew, WFM/Module→WFM, HC/T2IA→Type 2/2IA Handcrew, Fuels,
     Job Corps), plus **two new labels: "Suppression Module" and "Fire Effects."**
-- **Two follow-ups are open** — see "Open items" below.
+- **The UI has since caught up** — see the two sections below.
+
+### Atlas UI catch-up ✅ DONE
+The merge put `crew_name`, `photo_url` and two new crew-type labels in the
+database; the app now actually uses them.
+
+- **Popups are titled with the real `crew_name`** when there is one (every Atlas
+  row, plus the 138 curated rows the Atlas matched), falling back to ranger
+  district → forest → "Unnamed crew". `CrewMap.js` had to add `crew_name,
+  photo_url` to its Supabase `select` — Supabase returns only the columns you
+  ask for, so the popup couldn't see them before.
+- **`photo_url` renders as a bounded image** (full popup width, cropped to
+  130px) that removes itself if the image fails to load, so a dead URL leaves no
+  broken-image icon. The `src` is gated to http(s) only.
+- **"Suppression Module" and "Fire Effects" are filterable**, each with its own
+  SVG glyph and color (deep-teal droplet / olive magnifier) in `lib/crewTypes.js`
+  and the legend. They were appended to the END of `CREW_TYPE_SYMBOLS` on
+  purpose: `crewTypeFor()` returns the first match scanning in order, so
+  appending guarantees no existing pin changed the symbol it already showed.
+
+### Phase 2.7 — Atlas region backfill ✅ DONE (written + verified)
+The 389 Atlas rows had no `region`. This filled it in where it could be known
+honestly, using **only our own data plus public USFS structure** — no external
+boundary data, no new service, no cost.
+
+- **`region_backfill_dryrun.py`** — the matcher. Read-only; there is no write
+  path in the file at all. Matches an Atlas crew's `forest` to a forest already
+  in the curated 440 and borrows that forest's region.
+- **`region_backfill_commit.py`** — dry-run by default, `--commit` writes,
+  `--rollback` undoes, snapshots to `region_backfill_backup.json` (gitignored)
+  before the first write. It **imports** the matcher rather than copying it, so
+  the two can't drift.
+- **Result: 85 of 389 assigned** — 52 exact + 19 fuzzy borrowed from curated
+  data, plus **14 from an explicit R8/R9/R10 table** for Eastern/Southern/Alaska
+  forests we hold no curated crew for (nothing to borrow). Breakdown: R5 36 ·
+  R8 10 · R3 9 · R2 8 · R6 8 · R4 6 · R1 4 · R9 2 · R10 2.
+- **304 left NULL on purpose** — 113 non-USFS units (BLM/NPS/BIA/TNC/state/
+  county), 127 rows with no forest name at all, 64 state/tribal/county agencies.
+  NULL is the honest answer for these, not a gap to be filled.
+- **Three matcher bugs were found and fixed before committing anything.** The
+  first pass looked like 75 matches but contained **8 false positives** — the
+  0.6 token-overlap rule divides by the shorter name, so a one-token curated
+  forest like `CARSON NF` matched *anything* containing "carson" at 1.00
+  ("Carson City BLM"). It also *missed* real forests because the curated data
+  mixes "GILA NF" with "PAYETTE NATIONAL FOREST", diluting correct pairs to
+  0.50. Fixes: more stopwords (`national`/`forest`/`district`, `mount`→`mt`), a
+  hard non-USFS gate applied before matching, and a "distinctive token" rule so
+  generic words like "river" can't carry a match alone. The script keeps a
+  **REGRESSION CHECK** block naming the specific rows that were wrong — keep it
+  passing.
+- **R8/R9/R10 added to the region palette** (`lib/regions.js`), colors chosen by
+  measuring CIELAB deltaE against *both* the region and crew-type palettes so
+  nothing clashes when you switch symbolize modes. `Legend.js` is gated on
+  `presentRegions` so a region only appears once crews actually have it.
+  (There is no Region 7 — the Forest Service retired it. The 6→8 jump is real.)
+- **Same run cleaned 58 rows of text artifacts** left by the original Atlas
+  import: 3 with literal `<![CDATA[...]]>` wrappers and 55 with non-breaking
+  spaces (which block line-wrapping and widen popups). Only 3 had been spotted
+  by eye; searching by content found the rest. 3 of the 58 are `usfs_official`
+  rows enriched by the Atlas, so that write is guarded by **id, not by source** —
+  a source filter would have silently skipped them.
 
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never
-  force-pushes main). Used for every commit this session.
+  force-pushes main). Used for every commit — don't run git by hand.
 - Node v24, npm 11. Repo pushed to GitHub (`main`), commits directly to `main`.
 
 ## Open items / What's NEXT
 
-**The two Atlas follow-ups (the merge landed in the database; the UI hasn't
-caught up yet):**
+**Nothing is blocking Phase 1 — it is fully done.** Everything below is ICING or
+backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
 
-- **Wire crew names + photos into the popup.** `crews` now has `crew_name` and
-  `photo_url`, but `components/CrewPopup.js` still derives its title from the
-  ranger district (its comment at the top — "this dataset has no dedicated crew
-  name field" — is now out of date). Use the real `crew_name` when present, fall
-  back to district → forest, and decide how/whether to show `photo_url`. Note the
-  photo URLs are Google My Maps-hosted and may not be hotlink-stable long term.
-- **Add "Suppression Module" + "Fire Effects" to the crew-type filter.** The
-  import writes these two new labels, but the curated dropdown list
-  (`CREW_TYPES` in `components/CrewMap.js`) doesn't include them, so those crews
-  can't be filtered for. Also consider whether they need a symbol in
-  `lib/crewTypes.js` / the legend, or should fall through to "Other."
+**Two issues surfaced during the Atlas UI work, deliberately deferred:**
 
-**Everything else, unchanged:**
+- **The Atlas photo URLs are dead — all 114 of them.** Load-tested in a browser:
+  every stored `photo_url` fails. Each contains a literal `*` in the path
+  (`.../hostedimage/m/*/3AE5a_...`), which looks like an unsubstituted
+  placeholder rather than a real image URL — so the bug is probably in
+  `atlas_import.py`'s `gx_media_links` extraction, not in the data. **Low
+  priority on purpose:** `CrewPopup.js` hides an image that fails to load, so
+  popups already look correct. The photo feature is simply inert until fixed.
+- **The map now *looks* more national than it is.** The Atlas brought in a
+  handful of R8/R9/R10 crews, and they now show with their own legend colors —
+  but a handful of stragglers is **not** coverage of the Eastern, Southern or
+  Alaska regions. The curated 440 are Western-only (R1–R6) by design. Either
+  source real data for those regions or say plainly in the UI what the map does
+  and doesn't cover. Do not let the legend imply nationwide coverage.
 
-- **Verify mobile at ~390px** (iPhone width) — the last Phase 1 CORE item. The
-  responsive work is committed but untested in a real browser.
+**Longer-standing backlog, unchanged:**
+
 - **Automate `refresh_jobs.py` via GitHub Actions** (scheduled cron) so the jobs
   table stays fresh without manual runs. Needs secrets stored as encrypted
   Actions secrets.
 - **Vercel Web Analytics** (free tier) — add before sharing the link widely.
 - **Housing layer** — the next big build; drops into the layers panel as another
   overlay. Note the 389 Atlas rows have NULL housing, so they'll read as unknown.
+- **Next.js is two majors behind** (14.2.35). `npm audit` reports 2 high
+  advisories via Next + its bundled postcss. Assessed as **not exploitable
+  here** — the app has no API routes, middleware, Server Actions, `next/image`,
+  rewrites or i18n; it's a client-rendered map (`ssr: false`). Treat the upgrade
+  as scheduled maintenance, not an emergency, but don't leave it forever.
 
 ## Key safety rules
 
 - **Secret key (`sb_secret_` / old `service_role`) is LOCAL SCRIPTS ONLY.** Never
-  in app code, screenshots, or git; pass via env var. (One leaked this session —
-  it was rotated. Don't paste keys into chat.)
+  in app code, screenshots, or git; pass via env var. (One leaked in an earlier
+  session and had to be rotated. Don't paste keys into chat.)
 - **App uses only the public `sb_publishable_` key** via `NEXT_PUBLIC_` env vars.
 - **RLS stays public-read only** until Phase 3.
 - **$0 constraint:** Vercel + Supabase + Leaflet/OSM (+ free USAJOBS/Nominatim at
