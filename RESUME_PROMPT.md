@@ -34,7 +34,28 @@ load it before doing anything.
      * Map layer: browser-side 50-mi proximity match (lib/proximity.js); amber
        ring on crews hiring nearby (both symbolize modes); a "hiring nearby"
        filter; popup lists nearby postings with Apply-on-USAJOBS links; an
-       "updated {date}" freshness label. ~90/440 crews light up.
+       "updated {date}" freshness label. ~90/440 crews lit up when measured
+       (that count predates the Atlas merge below).
+   - Phase 2.6 "Wildland Fire Handcrew Atlas" merge is DONE and verified in
+     Supabase. Permission to USE the Atlas data is now SECURED (it was pending
+     before) — but the source KMZ is still NOT republished; it, the review CSVs,
+     state_geocache.json and atlas_import_backup.json all stay gitignored.
+     * atlas_schema.sql added three columns to `crews`: crew_name, photo_url,
+       and source (provenance on every row: usfs_official / handcrew_atlas /
+       user_submitted, NOT NULL + check constraint, so Phase 3 community
+       contributions need no further migration).
+     * atlas_import.py folded the KMZ in by proximity (<=5 mi) + forest-name
+       confirmation. Dry-run by default; --commit writes; --rollback undoes.
+     * RESULT: `crews` is now 829 rows. The 440 curated rows are unchanged
+       (still usfs_official); 138 of them were ENRICHED with an Atlas crew name
+       (+ photo/website where the Atlas had one) — curated values are never
+       overwritten and the website is never blanked. 389 NEW rows were added
+       tagged source='handcrew_atlas', with crew type extracted from the crew
+       names and state reverse-geocoded from the coordinates. Those new rows
+       have NULL region/district/town/housing (the Atlas doesn't have them);
+       the pins still show.
+     * Crew-type extraction introduced two NEW labels: "Suppression Module"
+       and "Fire Effects".
    - Supabase keys migrated to the new system: app uses the sb_publishable_ key,
      local scripts use the sb_secret_ key, and the old legacy keys are DISABLED.
    - The control panel was refactored into collapsible LAYERS (Crews = base,
@@ -48,13 +69,23 @@ load it before doing anything.
       are finger-sized, and crew popups don't overflow. This is the last Phase 1
       CORE item. Fix anything that's off, then mark it done in TODO_NOW.md +
       ARCHITECTURE.md.
-   b) (Backlog, when ready) Automate refresh_jobs.py via GitHub Actions (cron),
+   b) ATLAS FOLLOW-UP — wire crew names + photos into the popup. `crews` now has
+      crew_name and photo_url, but components/CrewPopup.js still titles each
+      popup with the ranger district, and its opening comment ("this dataset has
+      no dedicated crew name field") is now out of date. Use crew_name when
+      present, fall back to district -> forest, and decide how/whether to show
+      photo_url (those URLs are Google My Maps-hosted and may not be
+      hotlink-stable long term).
+   c) ATLAS FOLLOW-UP — add "Suppression Module" and "Fire Effects" to the
+      crew-type filter. The import writes both labels, but the curated
+      CREW_TYPES list in components/CrewMap.js doesn't include them, so those
+      crews can't be filtered for. Also decide whether each needs a symbol in
+      lib/crewTypes.js + the legend, or should fall through to "Other".
+   d) (Backlog, when ready) Automate refresh_jobs.py via GitHub Actions (cron),
       with Supabase + USAJOBS creds as encrypted Actions secrets.
-   c) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link.
-   d) (Future big build) Add a Housing layer to the layers panel.
-   NOTE: the "Wildland Fire Handcrew Atlas" KMZ is exploration-only and
-   gitignored — do NOT import or merge it; permission from its creator is still
-   pending.
+   e) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link.
+   f) (Future big build) Add a Housing layer to the layers panel. Note the 389
+      Atlas rows have NULL housing, so they'll read as unknown.
 
 5. Subagents available:
    - code-reviewer (.claude/agents/code-reviewer.md) — read-only, reviews code

@@ -38,10 +38,12 @@ landing page.** Viewing/searching is always login-free.
 - Next.js App Router app (plain JS, Next 14). **Map is the landing page** — no
   homepage/splash/login. Leaflet + OSM; `CircleMarker` pins to avoid bundler
   icon issues.
-- All 440 crews load from Supabase via the **public key only**.
+- All crews load from Supabase via the **public key only**. (Was 440 when built;
+  the table is **829** since the Atlas merge — the app reads the table, so the
+  extra pins show automatically.)
 - Two symbolize modes: **Region (color)** and **Crew type (symbol)** with a
   matching legend. Four filters (State, Region, Crew type, Housing) as
-  multi-select checkbox dropdowns; live "Showing X of 440" count.
+  multi-select checkbox dropdowns; live "Showing X of N" count.
 - Click popup with crew details (forest, district, town/state, resource, region,
   housing, website when present).
 - **Deployed to Vercel** (live URL above).
@@ -61,7 +63,9 @@ landing page.** Viewing/searching is always login-free.
   (works in both symbolize modes). A **"hiring nearby" filter** narrows to those
   crews. The popup lists nearby postings (≤5, closest first) with
   **Apply-on-USAJOBS** links. Honest **"updated {date}"** freshness label + empty
-  states. Verified against live data: **90/440 crews light up.**
+  states. Verified against live data at the time: **90/440 crews light up** (that
+  count predates the Atlas merge; the ring logic is coordinate-based, so the new
+  Atlas crews participate too).
 
 ### Supabase key migration ✅
 - The original **legacy `service_role` key was exposed** (pasted into chat) and
@@ -87,6 +91,38 @@ landing page.** Viewing/searching is always login-free.
   popups constrained to fit. **Compiles cleanly but has NOT been tested at
   ~390px in a browser** — committed with an `[UNVERIFIED]` tag.
 
+### Phase 2.6 — Handcrew Atlas merge ✅ DONE (verified in Supabase)
+**Permission to USE the Atlas data is secured.** The source KMZ is still *not*
+republished — it stays gitignored, and so do the review CSVs and caches.
+
+- **Schema (`atlas_schema.sql`)** — purely additive, idempotent. Adds three
+  columns to `crews`: **`crew_name`** (our data never had one), **`photo_url`**
+  (one Google My Maps image when present), and **`source`** (provenance on every
+  row). `source` is backfilled to `usfs_official`, made `NOT NULL` with a default,
+  and constrained to `usfs_official` / `handcrew_atlas` / `user_submitted` — so
+  Phase 3 community rows drop in with no further migration.
+- **Import (`atlas_import.py`)** — reads the 527-placemark KMZ and folds it in by
+  **proximity (≤5 mi) + forest-name confirmation**. Dry-run by default; `--commit`
+  writes, `--rollback` undoes. Before its first write it snapshots every row it
+  will touch to `atlas_import_backup.json` (local only).
+- **Result — `crews` is now 829 rows, verified in Supabase:**
+  - **440 curated rows unchanged** in identity, still `source='usfs_official'`.
+  - **138 of them enriched** with an Atlas crew name (+ photo/website when the
+    Atlas had one). Non-destructive rules: website = Atlas link *or* keep ours
+    (never blanked); `resource` and `state` only fill when ours was **blank** — a
+    curated value is never overwritten.
+  - **389 new rows added** as `source='handcrew_atlas'` — crews only the Atlas
+    has, including non-USFS (TNC/NPS/BLM/BIA/state) crews. These carry name,
+    forest, notes, website, photo, coords, an extracted crew type, and a
+    **state reverse-geocoded from the coordinate** (cached in
+    `state_geocache.json`). Region/district/town/housing are left NULL — the
+    Atlas doesn't have them and coordinates can't honestly supply them. Those
+    pins still show.
+  - **Crew type extracted from crew names** into our exact resource labels
+    (IHC→Hotshot Crew, WFM/Module→WFM, HC/T2IA→Type 2/2IA Handcrew, Fuels,
+    Job Corps), plus **two new labels: "Suppression Module" and "Fire Effects."**
+- **Two follow-ups are open** — see "Open items" below.
+
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never
   force-pushes main). Used for every commit this session.
@@ -94,16 +130,31 @@ landing page.** Viewing/searching is always login-free.
 
 ## Open items / What's NEXT
 
+**The two Atlas follow-ups (the merge landed in the database; the UI hasn't
+caught up yet):**
+
+- **Wire crew names + photos into the popup.** `crews` now has `crew_name` and
+  `photo_url`, but `components/CrewPopup.js` still derives its title from the
+  ranger district (its comment at the top — "this dataset has no dedicated crew
+  name field" — is now out of date). Use the real `crew_name` when present, fall
+  back to district → forest, and decide how/whether to show `photo_url`. Note the
+  photo URLs are Google My Maps-hosted and may not be hotlink-stable long term.
+- **Add "Suppression Module" + "Fire Effects" to the crew-type filter.** The
+  import writes these two new labels, but the curated dropdown list
+  (`CREW_TYPES` in `components/CrewMap.js`) doesn't include them, so those crews
+  can't be filtered for. Also consider whether they need a symbol in
+  `lib/crewTypes.js` / the legend, or should fall through to "Other."
+
+**Everything else, unchanged:**
+
 - **Verify mobile at ~390px** (iPhone width) — the last Phase 1 CORE item. The
   responsive work is committed but untested in a real browser.
 - **Automate `refresh_jobs.py` via GitHub Actions** (scheduled cron) so the jobs
   table stays fresh without manual runs. Needs secrets stored as encrypted
   Actions secrets.
-- **"Wildland Fire Handcrew Atlas" permission still pending** — the KMZ is
-  exploration-only and gitignored; do NOT import/merge until the creator says ok.
 - **Vercel Web Analytics** (free tier) — add before sharing the link widely.
 - **Housing layer** — the next big build; drops into the layers panel as another
-  overlay.
+  overlay. Note the 389 Atlas rows have NULL housing, so they'll read as unknown.
 
 ## Key safety rules
 

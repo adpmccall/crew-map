@@ -65,5 +65,49 @@ ARCHITECTURE.md for the decisions.
 - [x] Key migration complete: app runs on the new `sb_publishable_` key
       (`NEXT_PUBLIC_SUPABASE_ANON_KEY`); the old legacy keys are disabled.
 
-## Next up (Phase 1 CORE still open)
-- [ ] Verify mobile usability (map + filter panel + popup on a phone screen)
+## Phase 2.6 — Handcrew Atlas merge — ✅ DONE (verified in Supabase)
+Permission to USE the Atlas data is secured. The source KMZ is still NOT
+republished — it, the review CSVs, and `state_geocache.json` /
+`atlas_import_backup.json` all stay gitignored. See MERGE_PLAN.md for the plan.
+- [x] **Schema:** `atlas_schema.sql` — additive + idempotent. Adds `crew_name`,
+      `photo_url`, and `source` to `crews`; backfills `source='usfs_official'`;
+      makes it NOT NULL with a default and a check constraint allowing
+      `usfs_official` / `handcrew_atlas` / `user_submitted` (so Phase 3 community
+      rows need no further migration). Grants + a `source` index for rollback.
+- [x] **Import:** `atlas_import.py` — folds the 527-placemark KMZ in by proximity
+      (≤5 mi) + forest-name confirmation. Dry-run by default, `--commit` writes,
+      `--rollback` undoes; snapshots pre-merge state to `atlas_import_backup.json`.
+- [x] **Ran + verified: `crews` is now 829 rows.**
+      - 440 curated rows unchanged, still `source='usfs_official'`
+      - 138 of them **enriched** with an Atlas crew name (+ photo/website where
+        the Atlas had one). Website = Atlas link OR keep ours (never blanked);
+        `resource` / `state` fill ONLY when ours was blank — curated values are
+        never overwritten.
+      - 389 **new** rows tagged `source='handcrew_atlas'` (crews only the Atlas
+        has, incl. non-USFS TNC/NPS/BLM/BIA/state). Region/district/town/housing
+        left NULL — the Atlas doesn't have them; those pins still show.
+      - **Crew type extracted from crew names** into our exact labels, plus two
+        NEW labels: **Suppression Module** and **Fire Effects**.
+      - **State reverse-geocoded** from coordinates (cached, `state_geocache.json`).
+- [x] Committed `atlas_schema.sql`, `atlas_import.py`, and the `.gitignore`
+      additions; confirmed no third-party data or caches were committed.
+
+## Next up
+Phase 1 CORE first, then the two Atlas follow-ups.
+
+- [ ] **Verify mobile usability** (map + filter panel + popup on a phone screen)
+      — the last Phase 1 CORE item, still open.
+
+### Atlas follow-ups (the merge landed in the DB; the UI hasn't caught up)
+- [ ] **Wire crew names + photos into the popup.** `crews` now has `crew_name`
+      and `photo_url`, but `components/CrewPopup.js` still titles each popup with
+      the ranger district — and its opening comment ("this dataset has no
+      dedicated crew name field") is now out of date. Use `crew_name` when
+      present, fall back to district → forest, and decide how/whether to display
+      `photo_url`. Heads-up: those photo URLs are Google My Maps-hosted and may
+      not be hotlink-stable long term.
+- [ ] **Add "Suppression Module" + "Fire Effects" to the crew-type filter.** The
+      import writes both labels, but the curated `CREW_TYPES` list in
+      `components/CrewMap.js` doesn't include them, so those crews can't be
+      filtered for. Also decide whether each needs a symbol in `lib/crewTypes.js`
+      + the legend, or should fall through to "Other."
