@@ -34,6 +34,10 @@ state_geocache.json
 # from the database — not source, and not something to publish.
 atlas_import_backup.json
 
+# Same idea for the region backfill: pre-write snapshot used by
+# region_backfill_commit.py --rollback. Local rollback state, not source.
+region_backfill_backup.json
+
 # --- Third-party data pending permission (DO NOT COMMIT) ---
 # The "Wildland Fire Handcrew Atlas" KML/KMZ was exported from someone else's
 # Google My Maps. We don't have permission to use or publish it yet, so keep it
