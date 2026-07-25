@@ -194,6 +194,21 @@ body {
   line-height: 1.2;
 }
 
+/* Optional crew photo (only Handcrew Atlas rows have one). Deliberately
+   bounded: it fills the popup's width and is CROPPED to a fixed height, so a
+   large source image can't stretch the popup or push the details off screen.
+   `.crew-popup` caps the width (240px desktop / 76vw mobile), so width:100%
+   is safe in both. */
+.crew-popup-photo {
+  display: block;
+  width: 100%;
+  max-height: 130px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin: 0 0 8px;
+  background: #eaeaea; /* neutral placeholder while the image loads */
+}
+
 /* Two-column layout: label on the left, value on the right. */
 .crew-popup-list {
   margin: 0;

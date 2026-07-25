@@ -48,6 +48,10 @@ const CREW_TYPES = [
   "Type 2/2IA Handcrew",
   "Water Tender",
   "Dozer",
+  // Two labels the Handcrew Atlas merge writes into `resource`. Without them in
+  // this list those crews load and draw on the map but can't be filtered for.
+  "Suppression Module",
+  "Fire Effects",
 ];
 
 // The "no filters applied" starting point. State/Region/Crew type are
@@ -138,7 +142,10 @@ export default function CrewMap() {
       const { data, error } = await supabase
         .from("crews")
         .select(
-          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude"
+          // crew_name and photo_url come from the Handcrew Atlas merge. They
+          // have to be listed here or the popup would never see them — Supabase
+          // returns only the columns we ask for.
+          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url"
         )
         .not("latitude", "is", null)
         .not("longitude", "is", null);
