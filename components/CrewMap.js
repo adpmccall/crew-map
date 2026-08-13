@@ -27,9 +27,14 @@ import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
 import Legend from "./Legend";
 
-// Every crew in the dataset is in the Western/Plains US, so center there.
-const US_CENTER = [42, -113];
-const US_ZOOM = 5;
+// Open on the whole continental US, not just the West. This project's scope is
+// nationwide, and we already hold crews in R8/R9/R10 (Eastern/Southern/Alaska)
+// that a Western-centered view left off-screen on first load. Our pins are still
+// mostly Western, so the East will look sparse — that's the real state of the
+// data, and it's tracked as "Finish nationwide coverage" in TODO_NOW.md.
+// Known limitation: Alaska sits outside this view; you have to pan to it.
+const US_CENTER = [39.5, -98.5];
+const US_ZOOM = 4;
 
 // A small curated list of crew types for the dropdown. The raw `resource` field
 // is messy (inconsistent casing/spacing, several types per crew), so instead of

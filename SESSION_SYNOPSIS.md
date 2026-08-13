@@ -7,9 +7,9 @@ a fresh Claude session) can get oriented fast. For the authoritative plan see
 
 ## The goal
 
-A **free ($0)** interactive web map for wildland firefighters. A user opens the
-site URL and is **immediately** shown a queryable US map of US Forest Service
-fire crews — **no homepage, no splash, no login to view.** Crews show as pins;
+A **free ($0)** interactive web map for wildland firefighters, covering **US
+fire crews nationwide — all regions, all 50 states.** A user opens the site URL
+and is **immediately** shown a queryable US map of those crews — **no homepage, no splash, no login to view.** Crews show as pins;
 filter controls (state, crew type, housing, region) are visible on first load
 and narrow the pins; clicking a pin shows that crew's details. **The map IS the
 landing page.** Viewing/searching is always login-free.
@@ -210,12 +210,14 @@ backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
   `atlas_import.py`'s `gx_media_links` extraction, not in the data. **Low
   priority on purpose:** `CrewPopup.js` hides an image that fails to load, so
   popups already look correct. The photo feature is simply inert until fixed.
-- **The map now *looks* more national than it is.** The Atlas brought in a
-  handful of R8/R9/R10 crews, and they now show with their own legend colors —
-  but a handful of stragglers is **not** coverage of the Eastern, Southern or
-  Alaska regions. The curated 440 are Western-only (R1–R6) by design. Either
-  source real data for those regions or say plainly in the UI what the map does
-  and doesn't cover. Do not let the legend imply nationwide coverage.
+- **Nationwide coverage is started but incomplete.** The project's scope is all
+  US fire crews in every region. The Atlas gave us our **first ~14 R8/R9/R10
+  crews** — a genuine beginning on the Eastern, Southern and Alaska regions, but
+  nowhere near complete, and the original 440-crew source file only covered
+  R1–R6. So the map currently shows less than it aims to. The fix is to **source
+  real R8/R9/R10 crew data** (tracked in `TODO_NOW.md`); until that lands, be
+  straightforward in the UI about which regions are still thin rather than
+  implying the data is complete.
 
 **Longer-standing backlog, unchanged:**
 

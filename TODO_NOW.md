@@ -135,6 +135,37 @@ plus an explicit table for forests we hold no curated crew for.
       popups). All 58 cleaned and verified; 3 were curated rows enriched by the
       Atlas, so the write is guarded by id, not by source.
 
-**Coverage caveat:** the Atlas brought in a handful of R8/R9/R10 crews. That is
-NOT real Eastern/Southern/Alaska coverage — see the "National coverage" item in
-`TODO_LATER.md` before treating this map as nationwide.
+## Finish nationwide coverage — source real R8/R9/R10 crew data — ⬜ OPEN
+**This project covers all US fire crews nationwide.** The data doesn't match that
+yet, and closing the gap is the next real work — it's a data-sourcing task, not a
+code task.
+
+Where we actually are: the original curated source file covered **R1–R6 only**,
+and the Handcrew Atlas merge added our **first ~14 crews in R8/R9/R10**. That's a
+real start on the Eastern, Southern and Alaska regions, but it's whatever the
+Atlas happened to include — not deliberate coverage of those regions.
+
+- [ ] **Source comprehensive Eastern (R8), Southern/Eastern (R9) and Alaska (R10)
+      crew data.** Go after these regions on purpose rather than accepting the
+      Atlas's incidental ~14. Same bar as the curated 440: real crew locations
+      with enough detail to geocode and to fill `forest` / `district` / `town` /
+      `state` / `resource` where available.
+- [ ] **Check R1–R6 for gaps too.** The 440 are Forest Service crews; nationwide
+      also means not silently missing units within regions we already show.
+- [ ] **Load via the existing path** — the `source` column already accepts new
+      provenance values, and `import_to_supabase.py` + the region backfill
+      scripts exist. Tag new rows honestly; don't overwrite curated values.
+- [ ] **Until coverage lands, don't overstate it in the UI.** Thin regions should
+      read as "we're still building this out," not as "no crews here." (The
+      legend is already gated to regions that actually have crews.)
+- [x] **Recenter the map on the whole continental US.** Done — `US_CENTER` in
+      `components/CrewMap.js` moved from `[42, -113]` / zoom 5 (Western-centered,
+      which left our R8/R9/R10 crews off-screen on first load) to `[39.5, -98.5]`
+      / zoom 4.
+- [ ] **Make Alaska (R10) reachable on first load.** The continental-US view
+      above still leaves Alaska off-screen, so those crews are only findable by
+      panning. Options: an inset, a "jump to Alaska" control, or fitting bounds
+      to the data. Worth doing as R10 coverage grows.
+- [ ] **Revisit the default view once the data is fuller.** If pins end up truly
+      spread nationwide, consider fitting the initial view to the data's bounds
+      instead of a hardcoded center/zoom.

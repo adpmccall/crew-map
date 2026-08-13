@@ -28,25 +28,23 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
       `CrewPopup.js` hides an image that fails, so the popup already looks
       correct — the photo feature is simply inert until this is fixed.
 
-## National coverage — the honest gap
-- [ ] **Consider genuinely expanding to national coverage** — source real
-      Eastern/Southern/Alaska USFS crew data (not just incidental Atlas
-      stragglers). The current 440 curated crews are **Western-only by design
-      (R1–R6)**. The Handcrew Atlas merge pulled in a handful of R8/R9/R10 crews
-      as a side effect, which is not the same as covering those regions: it
-      makes the map *look* national while the underlying data isn't. Either
-      source real data for those regions or be explicit in the UI about what the
-      map does and doesn't cover.
+## National coverage
+Now tracked as active work — see **"Finish nationwide coverage"** in
+`TODO_NOW.md`. The project's goal is **all US fire crews nationwide**; the
+current data is Western-heavy because that's what the source files gave us, not
+because the scope stops there.
 
 ## Observability / sharing
 - [ ] Add Vercel Web Analytics (free tier) to track traffic — worth doing before
       sharing the link widely, so we can see if anyone actually uses it.
 
-## Third-party data (permission pending)
-- [ ] "Wildland Fire Handcrew Atlas" KMZ (527 placemarks) — **exploration only**
-      so far; DO NOT import or merge until the creator grants permission. File is
-      gitignored (`*.kml` / `*.kmz`). Rough comparison found ~55% looked like new
-      locations vs our 440 (wider geography + non-USFS crews).
+## Third-party data — ✅ RESOLVED (Phase 2.6)
+- [x] "Wildland Fire Handcrew Atlas" KMZ (527 placemarks) — **permission to use
+      the data is secured**, and the merge shipped as **Phase 2.6** (see
+      `TODO_NOW.md`): `crews` went from 440 to 829 rows. The source KMZ is still
+      **not republished** — it stays gitignored (`*.kml` / `*.kmz`), along with
+      the review CSVs and caches. The pre-merge estimate (~55% new locations vs
+      our 440) held up: 389 of the 527 placemarks were genuinely new.
 
 ## Phase 2 — Polish (ICING) — not started
 - [ ] Nicer / styled detail popups

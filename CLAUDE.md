@@ -85,7 +85,10 @@ Example record:
 
 ### Actual values you'll filter against (verified from the data)
 
-**6 regions** (this is a Western-US dataset — there is no nationwide coverage):
+**6 regions.** Note this describes the *source file*, not the project's scope.
+**The goal is nationwide coverage of all US fire crews.** `crews_cleaned.json`
+happens to contain only R1–R6 — that's a gap in the source data we intend to
+close, not a boundary we chose:
 
 ```
 NORTHERN REGION, REGION 1            (67)
@@ -96,9 +99,11 @@ PACIFIC SOUTHWEST REGION, REGION 5   (102)
 PACIFIC NORTHWEST REGION, REGION 6   (76)
 ```
 
-**16 states** (all Western / Plains — AZ, CA, CO, ID, KS, MT, NE, NV, NM, ND,
-OK, OR, SD, UT, WA, WY). The map can still center on the continental US, but
-don't expect East-Coast pins.
+**16 states** in this source file (AZ, CA, CO, ID, KS, MT, NE, NV, NM, ND, OK,
+OR, SD, UT, WA, WY). The map centers on the continental US and should stay built
+for **all 50 states** — Eastern, Southern and Alaska crews are data we still
+need to source, not places the map excludes. (The Handcrew Atlas merge has since
+added some R8/R9/R10 crews; see `TODO_NOW.md`.)
 
 **Housing:** `YES` (206), `NO` (50), blank (184).
 

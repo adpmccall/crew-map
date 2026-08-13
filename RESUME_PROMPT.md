@@ -87,16 +87,15 @@ load it before doing anything.
 
 4. Open items (confirm with me before starting anything):
 
-   a) A DECISION, NOT A TASK — NATIONAL COVERAGE. Raise this with me; don't
-      just pick one and start coding. The Atlas merge pulled in a handful of
-      Eastern/Southern/Alaska crews, and they now render with their own R8/R9/
-      R10 legend colors. That makes the map LOOK nationwide when it isn't: the
-      curated 440 are Western-only (R1-R6) by design, and 14 stragglers are not
-      coverage of three regions. Two honest ways forward:
-        - source real R8/R9/R10 crew data so the coverage matches the legend, or
-        - be explicit in the UI about the Western-only scope (and consider
-          whether those regions should appear in the legend at all yet).
-      Whichever we choose, the map must not imply coverage it doesn't have.
+   a) FINISH NATIONWIDE COVERAGE (the open work item in TODO_NOW.md). THIS
+      PROJECT IS NATIONWIDE — all US fire crews, every region. Nothing about
+      the scope is Western-only; the DATA is just incomplete. The original
+      curated file covered R1-R6 only, and the Atlas merge added our first ~14
+      R8/R9/R10 crews — a real start on Eastern/Southern/Alaska, not a
+      deliberate stopping point. Next step is to source comprehensive R8/R9/R10
+      crew data (a data-sourcing task, not a code task), and to check R1-R6 for
+      gaps too. Until that lands, thin regions should read in the UI as "still
+      building this out," never as "no crews here."
 
    b) FIX THE DEAD ATLAS PHOTO URLS. All 114 stored photo_url values fail to
       load — verified by load-testing them in a browser. Every one contains a

@@ -6,8 +6,15 @@ one of them on purpose. (CLAUDE.md = how to work; this file = what we're buildin
 ## Core goal (non-negotiable)
 
 A **queryable website where wildland firefighters can search Forest Service fire
-crews across the US and find that crew's info from this dataset.** Everything
-else is icing.
+crews across the US and find that crew's info.** Everything else is icing.
+
+**Scope is nationwide — all US fire crews, all regions.** That is the target the
+project is built against. The data we hold today is Western-heavy (the original
+440-crew source file covers only R1–R6, and the Handcrew Atlas added partial
+R8/R9/R10), but that is an **incomplete dataset, not a deliberate limit**.
+Sourcing the missing regions is tracked work, not a "maybe someday" — see
+`TODO_NOW.md`. Don't write code, copy, or UI that treats Western-only as the
+intended scope.
 
 **The intended experience — Phase 1 must deliver this alone:** a user opens the
 site URL and is **immediately** shown an interactive US map. No homepage, no
@@ -184,6 +191,9 @@ at $0.
   to the region palette; the legend only shows regions that actually have crews.
   Same run cleaned 58 rows of CDATA/non-breaking-space artifacts.
   See `region_backfill_dryrun.py` (matcher) and `region_backfill_commit.py`.
+  **These first R8/R9/R10 crews are a real start on the Eastern, Southern and
+  Alaska regions — just an incomplete one (~14 crews).** Filling them out is
+  tracked in `TODO_NOW.md`.
 - **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
   `refresh_jobs.py`, 32-row `jobs` table) and the map layer (proximity rings,
   hiring toggle, jobs-in-popup) both shipped and verified. Legacy service_role
