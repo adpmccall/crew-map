@@ -211,6 +211,62 @@ def to_number(value):
         return None
 
 
+def to_int(value):
+    """Grade levels arrive as strings like '05'. Return an int, or None if the
+    value isn't numeric (USAJOBS occasionally sends blanks or odd placeholders)."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+# --- USAJOBS code lists ---------------------------------------------------------
+# VERIFIED against the official published list, not inferred from posting prose:
+#   https://data.usajobs.gov/api/codelist/positionofferingtypes
+# (Needed, because the Name field that accompanies these codes is EMPTY on ~96%
+# of postings. An earlier read of 15327 from one posting's prose had it as
+# "Detail/Temporary Promotion"; it actually means "Multiple".)
+APPOINTMENT_TYPES = {
+    "15317": "Permanent",
+    "15318": "Temporary",
+    "15319": "Term",
+    "15320": "Detail",
+    "15321": "Temporary promotion",
+    "15322": "Seasonal",
+    "15323": "Summer",
+    "15324": "Presidential Management Fellows",
+    "15326": "Recent graduates",
+    "15327": "Multiple",
+    "15328": "Internships",
+    "15522": "Intermittent",
+    "15667": "ICTAP Only",
+    "15668": "Agency Employees Only",
+    "15669": "Telework",
+}
+
+# Federal standard: a work year is 2087 hours. Used ONLY to put every posting on
+# one axis for sorting/filtering — the posted figure and its interval are stored
+# separately and are what the UI displays.
+ANNUAL_HOURS = 2087.0
+INTERVAL_TO_ANNUAL = {
+    "PA": 1.0,                  # Per Year
+    "PH": ANNUAL_HOURS,         # Per Hour
+    "BW": ANNUAL_HOURS / 80.0,  # Bi-weekly -> 26.0875 pay periods
+    "PD": ANNUAL_HOURS / 8.0,   # Per Day  -> 260.875 working days
+    "PM": 12.0,                 # Per Month
+}
+# Everything else in the official list (WC without compensation, PW piece work,
+# ST stipend, FB fee basis, SY school year) is deliberately absent: there is no
+# honest annual equivalent, so those rows get NULL and drop out of salary RANGE
+# queries instead of being coerced into a misleading number.
+
+# "Permanent career seasonal" is a permanent appointment that works 6-11 months
+# a year. USAJOBS codes it 15317 Permanent, exactly like a year-round job, and
+# only reveals the difference in free text. We can therefore DETECT it but never
+# RULE IT OUT — see the three-state note in jobs_filters_schema.sql.
+CAREER_SEASONAL_RE = re.compile(r"career[\s-]*seasonal", re.IGNORECASE)
+
+
 def tidy(job):
     """Pull the useful, mostly-flat fields out of one raw posting."""
     # Duty locations: a posting can list several towns. Keep city + state.
@@ -228,6 +284,9 @@ def tidy(job):
     salary = (job.get("PositionRemuneration") or [{}])[0]
 
     # Build a readable pay grade like "GS 03-05" when we have the pieces.
+    # NOTE: `plan` is NOT assumed to be GW. The live corpus is GW 92 / GS 7 /
+    # NJ 1, and GW itself officially spans grades 1-15, so nothing here hardcodes
+    # a pay plan or a grade range.
     plan = pay_plans[0] if pay_plans else None
     low, high = details.get("LowGrade"), details.get("HighGrade")
     if plan and low and high:
@@ -237,15 +296,53 @@ def tidy(job):
     else:
         pay_grade = None
 
+    # --- appointment type (permanent vs temporary) ---
+    # The Name beside this code is empty on ~96% of postings, so the CODE is the
+    # signal and we resolve it ourselves from the verified list above.
+    offering = (job.get("PositionOfferingType") or [{}])[0]
+    appointment_code = offering.get("Code")
+    appointment_type = (
+        APPOINTMENT_TYPES.get(str(appointment_code)) if appointment_code else None
+    )
+
+    # --- career seasonal: True where stated, otherwise None (never False) ---
+    # Absence of the phrase is not evidence of year-round work — 38 of 44
+    # permanent postings say nothing either way — so we never write False.
+    seasonal_text = " ".join(
+        [
+            str(offering.get("Name") or ""),
+            str(details.get("JobSummary") or ""),
+            str(details.get("OtherInformation") or ""),
+            str(details.get("Requirements") or ""),
+        ]
+    )
+    career_seasonal = True if CAREER_SEASONAL_RE.search(seasonal_text) else None
+
+    # --- salary: keep what was posted, plus an annualized figure for sorting ---
+    interval = salary.get("RateIntervalCode")
+    salary_min = to_number(salary.get("MinimumRange"))
+    salary_max = to_number(salary.get("MaximumRange"))
+    factor = INTERVAL_TO_ANNUAL.get(interval)
+    to_annual = lambda v: round(v * factor, 2) if (factor and v is not None) else None
+
     return {
         "announcement_number": job.get("PositionID"),
         "title": job.get("PositionTitle"),
         "agency": job.get("OrganizationName"),
         "department": job.get("DepartmentName"),
         "job_series": ",".join(series) if series else None,
-        "pay_grade": pay_grade,
-        "salary_min": to_number(salary.get("MinimumRange")),
-        "salary_max": to_number(salary.get("MaximumRange")),
+        "pay_grade": pay_grade,              # display string, e.g. "GW 5-7"
+        "pay_plan": plan,                    # "GW" / "GS" / "NJ"
+        "grade_low": to_int(low),            # numeric, for range filtering
+        "grade_high": to_int(high),
+        "salary_min": salary_min,            # as posted
+        "salary_max": salary_max,            # as posted
+        "salary_interval": interval,         # "PH" / "PA" / ... — what to display
+        "salary_min_annual": to_annual(salary_min),   # sort/filter only
+        "salary_max_annual": to_annual(salary_max),
+        "appointment_code": str(appointment_code) if appointment_code else None,
+        "appointment_type": appointment_type,
+        "career_seasonal": career_seasonal,  # True or None, never False
         "open_date": only_date(job.get("PositionStartDate")),
         "close_date": only_date(job.get("PositionEndDate")),
         "apply_url": job.get("PositionURI"),
@@ -334,8 +431,17 @@ def build_rows(postings, coords, run_stamp):
                 "longitude": latlng[1],
                 "job_series": p["job_series"],
                 "pay_grade": p["pay_grade"],
+                "pay_plan": p["pay_plan"],
+                "grade_low": p["grade_low"],
+                "grade_high": p["grade_high"],
                 "salary_min": p["salary_min"],
                 "salary_max": p["salary_max"],
+                "salary_interval": p["salary_interval"],
+                "salary_min_annual": p["salary_min_annual"],
+                "salary_max_annual": p["salary_max_annual"],
+                "appointment_code": p["appointment_code"],
+                "appointment_type": p["appointment_type"],
+                "career_seasonal": p["career_seasonal"],
                 "open_date": p["open_date"],
                 "close_date": p["close_date"],
                 "apply_url": p["apply_url"],
