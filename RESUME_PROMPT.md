@@ -48,7 +48,7 @@ load it before doing anything.
      * atlas_import.py folded the KMZ in by proximity (<=5 mi) + forest-name
        confirmation. Dry-run by default; --commit writes; --rollback undoes.
      * RESULT: `crews` is now 829 rows. The 440 curated rows are unchanged
-       (still usfs_official); 138 of them were ENRICHED with an Atlas crew name
+       (still usfs_official); 124 of them were ENRICHED with an Atlas crew name
        (+ photo/website where the Atlas had one) — curated values are never
        overwritten and the website is never blanked. 389 NEW rows were added
        tagged source='handcrew_atlas', with crew type extracted from the crew

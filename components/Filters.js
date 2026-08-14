@@ -89,7 +89,8 @@ export default function Filters({
   stateOptions, // [{ value, label }] for the State list
   regionOptions, // [{ value, label }] for the Region list
   crewTypeOptions, // [{ value, label }] for the Crew type list
-  values, // current selections: { state:[], region:[], crewType:[], housing:"", hiringNearby:false }
+  agencyOptions, // [{ value, label }] for the Agency list
+  values, // current selections: { state:[], region:[], crewType:[], agency:[], housing:"", hiringNearby:false }
   onToggle, // (key, value) => void  — toggle one checkbox in a multi-select facet
   onChange, // (key, value) => void  — set a single-select filter (housing / hiringNearby)
   onClear, // () => void  — reset all filters
@@ -132,7 +133,7 @@ export default function Filters({
       <LayerSection
         title="Crews"
         defaultOpen={true}
-        sourceLabel={`${totalCount} USFS crews`}
+        sourceLabel={`${totalCount} crews`}
       >
         {/* Display mode: color pins by region, or draw a symbol per crew type.
             This changes how pins LOOK; it does not filter them. */}
@@ -151,8 +152,22 @@ export default function Filters({
           onToggle={(v) => onToggle("state", v)}
         />
 
+        {/* Agency sits ABOVE the region filter on purpose: region only applies
+            to Forest Service crews, so picking an agency first is the natural
+            order. Crews whose agency couldn't be determined appear under
+            "Unknown" rather than being quietly left out of the list. */}
         <CheckboxGroup
-          title="Region"
+          title="Agency"
+          options={agencyOptions}
+          selected={values.agency}
+          onToggle={(v) => onToggle("agency", v)}
+        />
+
+        <CheckboxGroup
+          // "Forest Service region" not just "Region": R1-R10 is a USFS concept,
+          // and now that the map carries BLM/NPS/state/county/tribal crews too,
+          // a bare "Region" would imply every crew has one. They don't.
+          title="Forest Service region"
           options={regionOptions}
           selected={values.region}
           onToggle={(v) => onToggle("region", v)}

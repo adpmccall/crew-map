@@ -115,7 +115,7 @@ republished — it stays gitignored, and so do the review CSVs and caches.
   will touch to `atlas_import_backup.json` (local only).
 - **Result — `crews` is now 829 rows, verified in Supabase:**
   - **440 curated rows unchanged** in identity, still `source='usfs_official'`.
-  - **138 of them enriched** with an Atlas crew name (+ photo/website when the
+  - **124 of them enriched** with an Atlas crew name (+ photo/website when the
     Atlas had one). Non-destructive rules: website = Atlas link *or* keep ours
     (never blanked); `resource` and `state` only fill when ours was **blank** — a
     curated value is never overwritten.
@@ -136,7 +136,7 @@ The merge put `crew_name`, `photo_url` and two new crew-type labels in the
 database; the app now actually uses them.
 
 - **Popups are titled with the real `crew_name`** when there is one (every Atlas
-  row, plus the 138 curated rows the Atlas matched), falling back to ranger
+  row, plus the 124 curated rows the Atlas matched), falling back to ranger
   district → forest → "Unnamed crew". `CrewMap.js` had to add `crew_name,
   photo_url` to its Supabase `select` — Supabase returns only the columns you
   ask for, so the popup couldn't see them before.

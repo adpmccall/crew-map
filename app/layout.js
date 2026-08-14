@@ -4,7 +4,9 @@ import "./globals.css";
 
 export const metadata = {
   title: "Crew Map",
-  description: "Interactive map of US Forest Service fire crews",
+  description:
+    "Interactive map of US wildland fire crews — Forest Service, BLM, NPS, " +
+    "tribal, state, county and local agencies",
 };
 
 export default function RootLayout({ children }) {

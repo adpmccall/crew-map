@@ -1,6 +1,7 @@
 # Crew Map
 
-Interactive map of US Forest Service fire crews. The map is the landing page:
+Interactive map of US wildland fire crews — Forest Service, BLM, NPS, tribal,
+state, county and local agencies. The map is the landing page:
 open the site and you immediately see all crews as dots on a free
 OpenStreetMap-tiled Leaflet map, loaded from Supabase. No homepage, no login.
 

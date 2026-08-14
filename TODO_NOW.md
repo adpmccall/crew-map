@@ -83,7 +83,7 @@ republished — it, the review CSVs, and `state_geocache.json` /
       `--rollback` undoes; snapshots pre-merge state to `atlas_import_backup.json`.
 - [x] **Ran + verified: `crews` is now 829 rows.**
       - 440 curated rows unchanged, still `source='usfs_official'`
-      - 138 of them **enriched** with an Atlas crew name (+ photo/website where
+      - 124 of them **enriched** with an Atlas crew name (+ photo/website where
         the Atlas had one). Website = Atlas link OR keep ours (never blanked);
         `resource` / `state` fill ONLY when ours was blank — curated values are
         never overwritten.

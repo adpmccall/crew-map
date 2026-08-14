@@ -23,6 +23,7 @@ import { supabase } from "../lib/supabaseClient";
 import { colorForRegion, REGIONS } from "../lib/regions";
 import { crewTypeFor, CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
 import { haversineMiles, HIRING_RADIUS_MI } from "../lib/proximity";
+import { agencyLabel, agencyOrder } from "../lib/agencies";
 import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
 import Legend from "./Legend";
@@ -67,6 +68,7 @@ const EMPTY_FILTERS = {
   state: [],
   region: [],
   crewType: [],
+  agency: [],
   housing: "",
   hiringNearby: false,
 };
@@ -141,16 +143,18 @@ export default function CrewMap() {
   }, []);
 
   useEffect(() => {
-    // Fetch all crews that have coordinates. 440 rows is well under Supabase's
-    // default 1000-row limit, so a single request returns them all.
+    // Fetch all crews that have coordinates. 829 rows is still under Supabase's
+    // default 1000-row limit, so a single request returns them all. (If the
+    // table grows past 1000 this will silently truncate — page it then.)
     async function loadCrews() {
       const { data, error } = await supabase
         .from("crews")
         .select(
-          // crew_name and photo_url come from the Handcrew Atlas merge. They
-          // have to be listed here or the popup would never see them — Supabase
-          // returns only the columns we ask for.
-          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url"
+          // crew_name and photo_url come from the Handcrew Atlas merge, and
+          // agency from the agency backfill. They have to be listed here or the
+          // UI would never see them — Supabase returns only the columns we ask
+          // for, which is exactly how the popup lost crew_name once already.
+          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url, agency"
         )
         .not("latitude", "is", null)
         .not("longitude", "is", null);
@@ -270,6 +274,19 @@ export default function CrewMap() {
     []
   );
 
+  // Agency options, built from the data and ordered by lib/agencies.js rather
+  // than alphabetically. Same gating idea as the region legend: only offer an
+  // agency that at least one loaded crew actually has, so the list can't
+  // advertise a category with nothing behind it. A row with no agency value
+  // counts as "unknown" — the column is NOT NULL, but this keeps the UI honest
+  // if that ever changes.
+  const agencyOptions = useMemo(() => {
+    const present = new Set(crews.map((c) => c.agency || "unknown"));
+    return [...present]
+      .sort((a, b) => agencyOrder(a) - agencyOrder(b))
+      .map((value) => ({ value, label: agencyLabel(value) }));
+  }, [crews]);
+
   // Apply all four filters. A crew is shown only if it passes EVERY active
   // filter. This runs in the browser over the already-loaded crews, so changing
   // a filter updates the pins instantly — no page reload, no new network call.
@@ -282,6 +299,16 @@ export default function CrewMap() {
         return false;
       }
       if (filters.region.length && !filters.region.includes(crew.region)) {
+        return false;
+      }
+
+      // Agency is multi-select and matches exactly (unlike crew type, which is a
+      // messy "contains" — agency is a single controlled value per crew). A crew
+      // with no agency counts as "unknown", so checking "Unknown" finds them.
+      if (
+        filters.agency.length &&
+        !filters.agency.includes(crew.agency || "unknown")
+      ) {
         return false;
       }
 
@@ -380,6 +407,7 @@ export default function CrewMap() {
             stateOptions={stateOptions}
             regionOptions={regionOptions}
             crewTypeOptions={crewTypeOptions}
+            agencyOptions={agencyOptions}
             values={filters}
             onToggle={toggleFilter}
             onChange={handleFilterChange}

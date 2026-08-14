@@ -38,6 +38,12 @@ atlas_import_backup.json
 # region_backfill_commit.py --rollback. Local rollback state, not source.
 region_backfill_backup.json
 
+# Same idea again for the agency backfill: pre-write snapshot used by
+# agency_backfill_commit.py --rollback, plus the review CSV the dry run can
+# write. Both are derived from the database — local state, not source.
+agency_backfill_backup.json
+agency_review.csv
+
 # --- Third-party data pending permission (DO NOT COMMIT) ---
 # The "Wildland Fire Handcrew Atlas" KML/KMZ was exported from someone else's
 # Google My Maps. We don't have permission to use or publish it yet, so keep it

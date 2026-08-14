@@ -59,7 +59,7 @@ export default function Legend({ mode, showHiring, presentRegions = [] }) {
   // effect — desktop behavior is unchanged.
   const [open, setOpen] = useState(false);
 
-  const title = mode === "type" ? "Crew type" : "Region";
+  const title = mode === "type" ? "Crew type" : "Forest Service region";
 
   // The rows differ by mode; the surrounding structure (title + body) is shared
   // so the collapse behavior works the same in both modes.
