@@ -42,6 +42,7 @@ HOW TO RUN (macOS / Linux, in this folder)
 """
 
 import os
+import re
 import sys
 import json
 import time
@@ -121,7 +122,21 @@ def get_supabase_config():
     """
     # URL isn't secret, so we accept the app's public var as a fallback.
     url = (os.environ.get("SUPABASE_URL")
-           or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")).rstrip("/")
+           or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")).strip().rstrip("/")
+
+    # Accept either form of the URL. Supabase shows it in two places and they
+    # are NOT the same string: "Project URL" in Settings is
+    # https://xxxxx.supabase.co, but the API docs show .../rest/v1. Pasting the
+    # second one builds .../rest/v1/rest/v1/jobs, which PostgREST rejects with a
+    # confusing 404 PGRST125. That exact mistake cost a failed run of the agency
+    # backfill; here it would fail inside a scheduled Action where it's far
+    # slower to spot, so just accept both. (Same helper as
+    # agency_backfill_commit.normalize_supabase_url — kept local because these
+    # scripts are deliberately standalone.)
+    trimmed = re.sub(r"/rest/v1(/.*)?$", "", url)
+    if trimmed != url:
+        print(f"NOTE: trimmed '/rest/v1' off SUPABASE_URL — using {trimmed}")
+        url = trimmed
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     if not url or not key:
         print("Missing Supabase config. Set these (service_role key via export):\n"

@@ -1,0 +1,139 @@
+# Refresh the "currently hiring" data, daily and automatically.
+#
+# WHAT THIS REPLACES
+#   Until now the `jobs` table was only as fresh as the last time someone ran
+#   refresh_jobs.py by hand. This runs it on a schedule instead. Nothing else
+#   about the app changes: the live site still talks only to Supabase and OSM.
+#
+# WHAT IT COSTS
+#   Nothing. GitHub Actions minutes are free and unlimited on public repos, and
+#   every service the script touches (USAJOBS, Nominatim, Supabase) is free.
+#
+# THE CREDENTIALS  (all four live in GitHub -> Settings -> Secrets and
+# variables -> Actions. None of them are in this file or anywhere in the repo.)
+#
+#   USAJOBS_API_KEY            free self-registered key
+#   USAJOBS_EMAIL              the email that key is registered to
+#   SUPABASE_URL               the project URL (not actually secret, but it's
+#                              tidier to keep all four in the same place)
+#   SUPABASE_CI_SECRET_KEY     a SEPARATE sb_secret_ key, created for CI only
+#
+#   That last one is deliberately NOT the same secret key used on a laptop.
+#   Supabase's key system allows several secret keys, so this one can be
+#   revoked on its own — if this workflow ever misbehaves, or the repo gains
+#   collaborators — without disturbing local scripts or the deployed app.
+#   It's mapped onto the SUPABASE_SERVICE_ROLE_KEY env var below because that
+#   is the variable name refresh_jobs.py reads.
+#
+# WHY THIS IS REASONABLY SAFE
+#   - Actions secrets are encrypted at rest and only decrypted into a running
+#     job. GitHub also masks them if anything tries to print one.
+#   - Workflows triggered from FORKED pull requests do not receive secrets, and
+#     this workflow never runs on pull_request at all — only on a schedule or a
+#     manual click.
+#   - The workflow token is read-only (see `permissions` below). This job
+#     writes to Supabase, never back to the repo.
+#   - Anyone with WRITE access to this repo could read these secrets by adding
+#     a step. That's fine while it's a single maintainer; revisit when adding
+#     a collaborator.
+
+name: Refresh jobs data
+
+on:
+  schedule:
+    # Daily at 09:17 UTC. Deliberately not on the hour: GitHub's scheduler is
+    # busiest at :00 and delays runs, so an odd minute tends to start sooner.
+    # Scheduled runs can still drift by tens of minutes — fine for job
+    # postings, which change over days.
+    - cron: "17 9 * * *"
+  # Adds a "Run workflow" button on the Actions tab, so a refresh can be forced
+  # without waiting for the schedule. Also how we'll test it the first time.
+  workflow_dispatch:
+
+# Least privilege: this job only needs to read the repo to get the script.
+# It writes to Supabase over HTTPS, so it needs no write access to GitHub.
+permissions:
+  contents: read
+
+# Never let two refreshes overlap (e.g. a manual run during the scheduled one).
+# They would fight over the same rows. Queue instead of cancelling, so a
+# deliberate manual run is never silently thrown away.
+concurrency:
+  group: refresh-jobs
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # The script geocodes politely (~1 request/second), so a slow run is
+    # normal. This is a backstop against a hang, not a target.
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # refresh_jobs.py's only third-party import.
+        run: python -m pip install --upgrade pip requests
+
+      # Persist job_geocache.json between runs.
+      #
+      # WHY THIS MATTERS: the cache is gitignored, so a fresh runner starts
+      # with nothing and would re-geocode every duty-station town on every
+      # run. Nominatim is a free community service with a 1-request-per-second
+      # policy — hammering it daily for answers we already have would be rude
+      # and slow. Restoring the cache means most runs do almost no geocoding.
+      #
+      # The key includes run_id so each run saves a NEW cache entry; the
+      # restore-keys prefix then matches the most recent previous one. (A
+      # fixed key would be written once and never updated.)
+      - name: Restore geocode cache
+        uses: actions/cache@v4
+        with:
+          path: job_geocache.json
+          key: job-geocache-${{ github.run_id }}
+          restore-keys: |
+            job-geocache-
+
+      - name: Refresh the jobs table
+        env:
+          USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+          USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # The CI-only key, mapped to the variable name the script expects.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_CI_SECRET_KEY }}
+        # `tee` keeps the output visible in the log AND saves it for the
+        # summary step. `pipefail` makes the step fail if the SCRIPT fails —
+        # without it the exit status would come from tee, which always
+        # succeeds, and a broken refresh would look green.
+        run: |
+          set -o pipefail
+          python3 refresh_jobs.py | tee refresh.log
+
+      # A short summary on the run's page, so you can see what happened without
+      # opening the full log. `always()` means this still runs when the refresh
+      # failed — which is exactly when you want to see the output.
+      #
+      # Note the script deliberately EXITS NON-ZERO if it fetched no postings,
+      # rather than emptying the table on a bad API pull. So a red run here
+      # usually means "USAJOBS returned nothing", not "the data is gone".
+      - name: Write run summary
+        if: always()
+        run: |
+          {
+            echo "### Jobs refresh"
+            echo ""
+            if [ -f refresh.log ]; then
+              echo '```'
+              tail -n 15 refresh.log
+              echo '```'
+            else
+              echo "No output — the refresh step failed before it ran."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
