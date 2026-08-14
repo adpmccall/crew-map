@@ -22,7 +22,7 @@ import "leaflet/dist/leaflet.css"; // Leaflet's own styles — required to rende
 import { supabase } from "../lib/supabaseClient";
 import { colorForRegion, REGIONS } from "../lib/regions";
 import { crewTypeFor, CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
-import { haversineMiles, HIRING_RADIUS_MI } from "../lib/proximity";
+import { haversineMiles, HIRING_RADIUS_MI, hiringBandFor } from "../lib/proximity";
 import { agencyLabel, agencyOrder } from "../lib/agencies";
 import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
@@ -73,16 +73,10 @@ const EMPTY_FILTERS = {
   hiringNearby: false,
 };
 
-// Amber ring drawn behind a pin that has an open job within 50 mi. It's its own
-// non-interactive layer, so it works IDENTICALLY in both "region" and "type"
-// modes without changing the pin itself, and never steals clicks from the pin.
-const HIRING_RING_OPTIONS = {
-  color: "#f59e0b", // amber — reads as "opportunity", distinct from region colors
-  weight: 3,
-  opacity: 0.9,
-  fill: false,
-  interactive: false,
-};
+// The hiring ring is its own non-interactive layer, so it works IDENTICALLY in
+// both "region" and "type" modes without changing the pin itself, and never
+// steals clicks from the pin. Its APPEARANCE now depends on how far the nearest
+// posting actually is — see HIRING_BANDS in lib/proximity.js for why.
 
 // Builds the little HTML label shown inside a crew-type DivIcon marker (used in
 // "symbol by crew type" mode). Mirrors how the Legend draws the same symbol.
@@ -474,13 +468,15 @@ export default function CrewMap() {
           // FIRST so the real pin sits on top of it. Because it's the same in
           // both modes, the indicator looks consistent whether pins are region
           // circles or crew-type symbols.
+          // nearbyJobs is sorted closest-first, so [0] is the nearest posting —
+          // that distance decides how prominently the ring is drawn.
           const ring = nearbyJobs ? (
             <CircleMarker
               key={`ring-${crew.id}`}
               center={position}
               radius={12}
               interactive={false}
-              pathOptions={HIRING_RING_OPTIONS}
+              pathOptions={hiringBandFor(nearbyJobs[0].distanceMi).pathOptions}
             />
           ) : null;
 

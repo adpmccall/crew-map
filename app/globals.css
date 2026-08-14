@@ -481,6 +481,8 @@ body {
 
 /* The amber ring swatch in the legend, matching the on-map hiring ring: a
    hollow circle with an amber stroke. */
+/* Border width/style/opacity are set inline per band, from HIRING_BANDS — the
+   same values Leaflet uses for the ring on the map. Only the shape lives here. */
 .hiring-ring-swatch {
   width: 15px;
   height: 15px;
@@ -488,6 +490,13 @@ body {
   border: 2.5px solid #f59e0b;
   box-sizing: border-box;
   display: inline-block;
+}
+
+/* The "Open posting near crew" heading above the three distance-band rows.
+   Slightly muted so it reads as a group label, not another legend entry. */
+.legend-hiring-head {
+  font-weight: 600;
+  opacity: 0.75;
 }
 
 /* Give the hiring legend row a little breathing room from the entries above. */

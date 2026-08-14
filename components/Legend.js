@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { REGIONS } from "../lib/regions";
 import { CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
+import { HIRING_BANDS } from "../lib/proximity";
 
 // Render one crew-type symbol the same way the map markers draw it, so the
 // legend and the pins look identical.
@@ -33,18 +34,41 @@ function TypeSymbol({ t }) {
   );
 }
 
-// The amber ring drawn around pins that have an open job nearby. Shown in the
+// The amber rings drawn around pins that have an open job nearby. Shown in the
 // legend (in BOTH modes) so the indicator on the map is explained. Only rendered
 // when there are jobs to match against.
-function HiringLegendRow({ show }) {
+//
+// One row per distance band, drawn FROM the same HIRING_BANDS
+// the map uses — so a swatch can never disagree with the ring it describes.
+// Each swatch mirrors that band's Leaflet stroke: weight -> border width,
+// opacity -> opacity, dashArray -> a dashed border.
+function HiringLegendRows({ show }) {
   if (!show) return null;
   return (
-    <div className="legend-row legend-hiring-row">
-      <span className="legend-symbol">
-        <span className="hiring-ring-swatch" />
-      </span>
-      <span>Hiring within 50 mi</span>
-    </div>
+    <>
+      <div className="legend-row legend-hiring-row legend-hiring-head">
+        <span>Open posting near crew</span>
+      </div>
+      {HIRING_BANDS.map((band) => {
+        const p = band.pathOptions;
+        return (
+          <div key={band.key} className="legend-row">
+            <span className="legend-symbol">
+              <span
+                className="hiring-ring-swatch"
+                style={{
+                  borderWidth: `${p.weight}px`,
+                  borderColor: p.color,
+                  borderStyle: p.dashArray ? "dashed" : "solid",
+                  opacity: p.opacity,
+                }}
+              />
+            </span>
+            <span>{band.label}</span>
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -103,7 +127,7 @@ export default function Legend({ mode, showHiring, presentRegions = [] }) {
 
       <div className="legend-body">
         {rows}
-        <HiringLegendRow show={showHiring} />
+        <HiringLegendRows show={showHiring} />
       </div>
     </div>
   );
