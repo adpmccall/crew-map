@@ -57,17 +57,29 @@ landing page.** Viewing/searching is always login-free.
   pulls open postings in **series 0456 + 0462**, drops national-announcement
   noise (>8 duty locations), expands each posting into one row per duty-station
   town, geocodes via Nominatim (cached in `job_geocache.json`), and **upserts**
-  into `jobs` using the secret key (local only). Re-runnable; **won't wipe the
-  table on an empty/bad pull**; prunes postings that have closed. `jobs`
-  populated (32 rows at last run).
+  into `jobs`. Re-runnable; **won't wipe the table on an empty/bad pull**;
+  prunes postings that have closed.
+- **Refreshes itself daily ✅** — `.github/workflows/refresh-jobs.yml`
+  ("Refresh jobs data") runs the script at 09:17 UTC, plus a manual **Run
+  workflow** button. No more running it by hand. Credentials are encrypted
+  GitHub Actions secrets, and the Supabase one is a **separate CI-only secret
+  key** so it can be revoked independently of the local key and the app.
+  Verified on the first run: 100 postings pulled → 55 dropped as
+  national-announcement noise → 45 kept → **98 rows** (a posting can cover
+  several duty-station towns) → 28 closed postings pruned. Confirmed
+  independently with the public key: 98 rows, 45 distinct announcements, one
+  fresh `last_refreshed`, 0 missing coords, 0 past their close date.
+  **⚠️ GitHub disables scheduled workflows after 60 days of repo inactivity** —
+  check that first if the hiring data ever looks stale.
 - **Map layer:** browser-side proximity match (`lib/proximity.js`, haversine,
   **50-mi radius**). Crews with an open job within 50 mi get an **amber ring**
   (works in both symbolize modes). A **"hiring nearby" filter** narrows to those
   crews. The popup lists nearby postings (≤5, closest first) with
   **Apply-on-USAJOBS** links. Honest **"updated {date}"** freshness label + empty
-  states. Verified against live data at the time: **90/440 crews light up** (that
-  count predates the Atlas merge; the ring logic is coordinate-based, so the new
-  Atlas crews participate too).
+  states. **264 of 829 crews (32%) currently light up** — measured 2026-08-14
+  against the automated refresh. (It was 90/440 when built; the ring logic is
+  coordinate-based, so the Atlas crews participate. Rings now appear on state,
+  NPS, BLM, tribal, county and local crews, not just USFS.)
 
 ### Supabase key migration ✅
 - The original **legacy `service_role` key was exposed** (pasted into chat) and

@@ -4,12 +4,16 @@ Big-picture items so they're not forgotten. Pull an item into `TODO_NOW.md` only
 when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
 
 ## Currently-hiring feature — follow-ups (Phase 2.5 shipped; these extend it)
-- [ ] **Automate `refresh_jobs.py` via GitHub Actions.** Today the `jobs` table
-      is refreshed by running the script manually (like `geocode.py`). A
-      scheduled Action (e.g. daily/weekly cron) would keep "currently hiring"
-      fresh without anyone remembering to run it. Needs the Supabase secret key
-      and USAJOBS creds stored as **encrypted GitHub Actions secrets** (never
-      committed).
+- [x] **Automate `refresh_jobs.py` via GitHub Actions** — ✅ DONE 2026-08-14.
+      `.github/workflows/refresh-jobs.yml` ("Refresh jobs data") runs it daily
+      at 09:17 UTC, plus a manual **Run workflow** button. Credentials are
+      encrypted Actions secrets; the Supabase one is a **separate CI-only
+      secret key** so it can be revoked without touching local scripts or the
+      app. First run verified: 45 postings → 98 rows, 0 missing coords, 0 past
+      their close date.
+      **⚠️ GitHub disables scheduled workflows after 60 days of repo
+      inactivity** (it emails first). If "hiring nearby" ever looks stale,
+      check that before debugging anything else.
 - [ ] Revisit the ">8 duty-location" national-announcement noise filter if it
       ever drops real field postings.
 

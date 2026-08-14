@@ -31,7 +31,10 @@ load it before doing anything.
    - Phase 2.5 "currently hiring" (USAJOBS) is DONE end-to-end:
      * Backend: jobs_schema.sql + refresh_jobs.py pull open fire jobs (series
        0456 + 0462), drop noise, geocode, and upsert into a public-read `jobs`
-       table (32 rows). Run MANUALLY for now (no scheduler yet).
+       table. RUNS ITSELF DAILY via GitHub Actions
+       (.github/workflows/refresh-jobs.yml, 09:17 UTC, plus a manual Run
+       workflow button) — do NOT run it by hand. Creds are encrypted Actions
+       secrets; the Supabase one is a SEPARATE CI-only secret key.
      * Map layer: browser-side 50-mi proximity match (lib/proximity.js); amber
        ring on crews hiring nearby (both symbolize modes); a "hiring nearby"
        filter; popup lists nearby postings with Apply-on-USAJOBS links; an
@@ -106,9 +109,10 @@ load it before doing anything.
       the photo feature is just inert. Investigate the extraction, re-run the
       import for photo_url only, and don't regress the graceful-hide behavior.
 
-   c) (Backlog) Automate refresh_jobs.py via GitHub Actions (cron), with
-      Supabase + USAJOBS creds as encrypted Actions secrets. The jobs table is
-      currently only as fresh as the last manual run.
+   c) DONE (2026-08-14) — refresh_jobs.py is automated. Nothing to do here.
+      Only relevant if "hiring nearby" ever looks stale: GitHub DISABLES
+      SCHEDULED WORKFLOWS AFTER 60 DAYS of repo inactivity, so check the
+      Actions tab before debugging anything else.
 
    d) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link
       widely, so we can tell whether anyone actually uses it.

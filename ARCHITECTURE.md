@@ -90,8 +90,27 @@ at $0.
 - **A local refresh script owns all writes.** `refresh_jobs.py` pulls from
   USAJOBS, filters noise, geocodes, and **upserts** into `jobs` using the
   **service_role key** — local-only, from an env var, never hardcoded or
-  committed (identical safety rules to `import_to_supabase.py`). Run **manually
-  for now**, like `geocode.py`; no scheduler yet.
+  committed (identical safety rules to `import_to_supabase.py`). **Runs
+  automatically** — see the decision below.
+- **The jobs refresh runs on GitHub Actions, daily.** `.github/workflows/
+  refresh-jobs.yml` runs `refresh_jobs.py` at 09:17 UTC (odd minute on purpose;
+  GitHub's scheduler is busiest on the hour), plus a manual trigger. Free on a
+  public repo, and it adds **no runtime service** — the live app still talks
+  only to Supabase and OSM, exactly as before.
+  - **Credentials are encrypted Actions secrets**, and the Supabase one is a
+    **separate CI-only `sb_secret_` key**, deliberately not the maintainer's
+    local key, so it can be revoked on its own. The workflow token is
+    `contents: read` — it writes to Supabase, never back to the repo. Forked-PR
+    workflows never receive secrets, and this workflow doesn't run on
+    `pull_request` at all.
+  - **A red run is not data loss.** The script exits non-zero rather than
+    writing when it fetched zero postings, so a failure means "USAJOBS returned
+    nothing", not "the table was emptied".
+  - **`job_geocache.json` is cached between runs** (`actions/cache`). It's
+    gitignored, so a fresh runner would otherwise re-geocode every town every
+    day against Nominatim — a free service with a 1 req/sec policy.
+  - **⚠️ GitHub disables scheduled workflows after 60 days of repo inactivity.**
+    First thing to check if the hiring data goes stale.
 - **Search both job series 0456 AND 0462.** The Forest Service is mid-transition
   from 0462 (Forestry Technician) to the new 0456 (Wildland Fire Management), and
   DOI already uses 0456 — so we query both to catch every open posting.
