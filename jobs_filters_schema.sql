@@ -26,11 +26,13 @@
 
 -- === SALARY =================================================================
 -- The posted figures stay exactly as posted: salary_min / salary_max plus the
--- interval they were quoted in. A seasonal posting keeps displaying "$23.20/hr"
--- because that is what it actually says.
+-- interval they were quoted in, so whatever displays pay can show "$23.20/hr"
+-- because that is what the posting actually says. (The crew popup doesn't show
+-- pay today — title, town, distance, apply link — but the data is ready if it
+-- ever should.)
 --
 -- The *_annual columns exist ONLY so sorting and range-filtering compare like
--- with like. They are never displayed.
+-- with like. They are not for display.
 --
 -- Conversion (federal standard): PA x1 · PH x2087 · BW x26.0875 · PD x260.875
 -- · PM x12. Intervals that cannot be annualized honestly (WC without

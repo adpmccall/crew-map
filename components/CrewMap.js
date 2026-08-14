@@ -24,6 +24,7 @@ import { colorForRegion, REGIONS } from "../lib/regions";
 import { crewTypeFor, CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
 import { haversineMiles, HIRING_RADIUS_MI, hiringBandFor } from "../lib/proximity";
 import { agencyLabel, agencyOrder } from "../lib/agencies";
+import { jobMatchesFilters, gradeOptionsFrom } from "../lib/jobFilters";
 import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
 import Legend from "./Legend";
@@ -71,6 +72,11 @@ const EMPTY_FILTERS = {
   agency: [],
   housing: "",
   hiringNearby: false,
+  // Hiring-layer filters. These narrow POSTINGS, not crews — a crew whose last
+  // matching posting is filtered away simply loses its ring (see lib/jobFilters).
+  payGrade: [],
+  appointment: [],
+  salary: "",
 };
 
 // The hiring ring is its own non-interactive layer, so it works IDENTICALLY in
@@ -167,13 +173,18 @@ export default function CrewMap() {
 
   useEffect(() => {
     // Load open job postings from the public `jobs` table (same anon key, same
-    // public-read pattern as crews — never the secret key). We only need the
-    // fields for matching (lat/lng) and for the popup/label.
+    // public-read pattern as crews — never the secret key).
     async function loadJobs() {
       const { data, error } = await supabase
         .from("jobs")
         .select(
-          "id, title, agency, town, state, latitude, longitude, apply_url, close_date, last_refreshed"
+          // Supabase returns ONLY the columns named here. The hiring filters
+          // read pay_plan / grade_* / salary_* / appointment_type, so leaving
+          // them off this list makes every one of those controls silently
+          // vanish — the same trap that once hid crew_name from the popup.
+          "id, title, agency, town, state, latitude, longitude, apply_url, close_date, last_refreshed, " +
+            "pay_plan, grade_low, grade_high, salary_min, salary_max, salary_interval, " +
+            "salary_min_annual, salary_max_annual, appointment_type, career_seasonal"
         )
         .not("latitude", "is", null)
         .not("longitude", "is", null);
@@ -207,12 +218,44 @@ export default function CrewMap() {
   // tells us both "is this crew hiring?" and "which jobs to show in its popup".
   // 440 crews × ~32 jobs is a tiny amount of math; useMemo just avoids redoing
   // it on every render (only when crews or jobs change).
+  // The postings that pass the Hiring-layer filters. Everything downstream —
+  // rings, popup lists, the "hiring nearby" toggle — is built from THIS list
+  // rather than from every job, which is what makes a filtered-out posting take
+  // its ring with it.
+  const matchingJobs = useMemo(
+    () => jobs.filter((job) => jobMatchesFilters(job, filters)),
+    [jobs, filters]
+  );
+
+  // Options for the grade dropdown, derived from the postings themselves so the
+  // list can't go stale as USAJOBS adds grades (GW officially spans 1-15).
+  const gradeOptions = useMemo(() => gradeOptionsFrom(jobs), [jobs]);
+
+  // Which hiring filters have anything to work with. A control that can't match
+  // anything is worse than no control — an empty "Pay grade" dropdown opens onto
+  // nothing and reads as broken, and ticking "Permanent" when no posting carries
+  // an appointment type would silently clear every ring.
+  //
+  // This isn't only a first-run concern: these columns are populated by
+  // refresh_jobs.py, so any posting USAJOBS returns without them lands here too.
+  // Each control appears once at least one posting can answer it.
+  const jobFieldsAvailable = useMemo(
+    () => ({
+      appointment: jobs.some((j) => j.appointment_type),
+      grade: gradeOptions.length > 0,
+      salary: jobs.some(
+        (j) => j.salary_max_annual != null || j.salary_min_annual != null
+      ),
+    }),
+    [jobs, gradeOptions]
+  );
+
   const nearbyJobsByCrew = useMemo(() => {
     const byCrew = {};
-    if (!jobs.length) return byCrew;
+    if (!matchingJobs.length) return byCrew;
     for (const crew of crews) {
       const near = [];
-      for (const job of jobs) {
+      for (const job of matchingJobs) {
         const distanceMi = haversineMiles(
           crew.latitude,
           crew.longitude,
@@ -227,7 +270,7 @@ export default function CrewMap() {
       }
     }
     return byCrew;
-  }, [crews, jobs]);
+  }, [crews, matchingJobs]);
 
   // The most recent `last_refreshed` across all jobs, formatted for display, so
   // users can see how fresh the "currently hiring" data is. Empty when no jobs.
@@ -402,6 +445,10 @@ export default function CrewMap() {
             regionOptions={regionOptions}
             crewTypeOptions={crewTypeOptions}
             agencyOptions={agencyOptions}
+            gradeOptions={gradeOptions}
+            jobFieldsAvailable={jobFieldsAvailable}
+            matchingJobCount={matchingJobs.length}
+            totalJobCount={jobs.length}
             values={filters}
             onToggle={toggleFilter}
             onChange={handleFilterChange}

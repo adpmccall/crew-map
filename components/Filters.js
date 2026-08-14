@@ -11,6 +11,11 @@
 //   • Hiring — a toggleable overlay (on/off) with the "hiring nearby" sub-filter.
 // Adding a third layer later (e.g. Housing) is just another <LayerSection> block.
 
+// The Hiring layer's filter vocabulary lives in lib/jobFilters.js alongside the
+// matching logic, so the options shown here and the rules that apply them can
+// never drift apart.
+import { APPOINTMENT_FILTERS, SALARY_THRESHOLDS } from "../lib/jobFilters";
+
 // A reusable multi-select dropdown for one facet. `options` is an array of
 // { value, label }; `selected` is an array of the checked values.
 //
@@ -90,6 +95,10 @@ export default function Filters({
   regionOptions, // [{ value, label }] for the Region list
   crewTypeOptions, // [{ value, label }] for the Crew type list
   agencyOptions, // [{ value, label }] for the Agency list
+  gradeOptions, // [{ value, label }] for the Pay grade list (from the postings)
+  jobFieldsAvailable, // { appointment, grade, salary } — which hiring filters have data
+  matchingJobCount, // postings passing the hiring-layer filters
+  totalJobCount, // postings loaded in total
   values, // current selections: { state:[], region:[], crewType:[], agency:[], housing:"", hiringNearby:false }
   onToggle, // (key, value) => void  — toggle one checkbox in a multi-select facet
   onChange, // (key, value) => void  — set a single-select filter (housing / hiringNearby)
@@ -225,6 +234,60 @@ export default function Filters({
           />
           <span>Show only crews hiring nearby (within 50 mi)</span>
         </label>
+
+        {/* These three narrow the POSTINGS, not the crews. A crew whose last
+            matching posting is filtered away loses its ring — same idea as any
+            other filter here: it narrows what you see. */}
+        {/* Each control only appears when at least one posting can answer it —
+            see jobFieldsAvailable in CrewMap. An empty dropdown reads as broken,
+            and a filter that can only ever match nothing is worse than absent. */}
+        {jobFieldsAvailable?.appointment && (
+          <CheckboxGroup
+            title="Appointment"
+            options={APPOINTMENT_FILTERS}
+            selected={values.appointment}
+            onToggle={(v) => onToggle("appointment", v)}
+          />
+        )}
+
+        {jobFieldsAvailable?.grade && (
+          <CheckboxGroup
+            title="Pay grade"
+            options={gradeOptions}
+            selected={values.payGrade}
+            onToggle={(v) => onToggle("payGrade", v)}
+          />
+        )}
+
+        {jobFieldsAvailable?.salary && (
+          <label>
+            Salary at least
+            <select
+              value={values.salary}
+              onChange={(e) => onChange("salary", e.target.value)}
+            >
+              {/* Compared against the posting's annualized top-of-range, so
+                  hourly and yearly postings are judged on one axis. The posted
+                  figure and its interval are kept untouched in the data; the
+                  popup just doesn't surface pay yet. */}
+              <option value="">Any</option>
+              {SALARY_THRESHOLDS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {/* Honest count whenever these filters are actually narrowing something,
+            so it's obvious the rings thinned out because of a filter and not
+            because the postings disappeared. */}
+        {hasJobs && matchingJobCount !== totalJobCount && (
+          <div className="layer-source">
+            {matchingJobCount} of {totalJobCount} postings match
+          </div>
+        )}
 
         {hiringEmpty && (
           <div className="hiring-empty-state">
