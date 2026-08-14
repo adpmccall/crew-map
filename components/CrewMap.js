@@ -183,7 +183,7 @@ export default function CrewMap() {
           // them off this list makes every one of those controls silently
           // vanish — the same trap that once hid crew_name from the popup.
           "id, title, agency, town, state, latitude, longitude, apply_url, close_date, last_refreshed, " +
-            "pay_plan, grade_low, grade_high, salary_min, salary_max, salary_interval, " +
+            "pay_grade, pay_plan, grade_low, grade_high, salary_min, salary_max, salary_interval, " +
             "salary_min_annual, salary_max_annual, appointment_type, career_seasonal"
         )
         .not("latitude", "is", null)

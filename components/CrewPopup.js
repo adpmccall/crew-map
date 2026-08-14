@@ -79,6 +79,43 @@ function Row({ label, value }) {
 // summary — keeps a crew near a busy hiring town from producing a giant popup.
 const MAX_JOBS_SHOWN = 5;
 
+// Pay, shown EXACTLY as USAJOBS advertised it. The map filters on an annualized
+// figure so hourly and yearly postings can be compared, but that number is never
+// displayed — a seasonal posting says "$23.20/hr" here, because that is what it
+// actually pays. Showing an annualized $48,418 instead would look wrong to
+// anyone who then opened the posting.
+const RATE_SUFFIX = {
+  PH: "/hr",
+  PA: "/yr",
+  BW: "/pay period",
+  PD: "/day",
+  PM: "/month",
+};
+
+function formatPay(job) {
+  const { salary_min: min, salary_max: max, salary_interval: interval } = job;
+  if (min == null && max == null) return "";
+
+  // Hourly rates need cents ($23.20); annual salaries don't ($67,617).
+  const cents = interval === "PH";
+  const money = (n) =>
+    "$" +
+    Number(n).toLocaleString("en-US", {
+      minimumFractionDigits: cents ? 2 : 0,
+      maximumFractionDigits: cents ? 2 : 0,
+    });
+
+  // A single-grade posting often quotes one figure twice; don't print a range
+  // of a number to itself.
+  const range =
+    min != null && max != null && Number(min) !== Number(max)
+      ? `${money(min)} – ${money(max)}`
+      : money(min ?? max);
+
+  // An unrecognized interval falls back to no suffix rather than guessing.
+  return range + (RATE_SUFFIX[interval] || "");
+}
+
 // `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
 // by the map. It's empty (default) for crews with no open postings within range.
 export default function CrewPopup({ crew, nearbyJobs = [] }) {
@@ -160,6 +197,33 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
                 <div className="job-meta">
                   {job.town}, {job.state} · {formatDistance(distanceMi)}
                 </div>
+
+                {/* Appointment type and grade — the two things a firefighter
+                    checks first. Joined on one line and each part dropped when
+                    absent, so a posting missing one never leaves a stray "·". */}
+                {(job.appointment_type || job.pay_grade) && (
+                  <div className="job-meta">
+                    {[job.appointment_type, job.pay_grade]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                )}
+
+                {formatPay(job) && (
+                  <div className="job-meta">{formatPay(job)}</div>
+                )}
+
+                {/* Career seasonal: a PERMANENT appointment that works 6-11
+                    months a year, not year-round. USAJOBS codes it identically
+                    to a true year-round permanent job and only says so in free
+                    text, so we can spot it but never rule it out — it shows on
+                    the few postings that state it and stays silent otherwise.
+                    Deliberately a note, not a filter. */}
+                {job.career_seasonal && (
+                  <div className="job-note">
+                    Career seasonal — permanent, but not year-round
+                  </div>
+                )}
                 {job.apply_url && (
                   <a
                     href={withProtocol(job.apply_url)}

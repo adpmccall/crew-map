@@ -541,6 +541,19 @@ body {
   margin: 1px 0 2px;
 }
 
+/* The "career seasonal" note. Muted and italic so it reads as a caveat on the
+   posting above it, not as another field — it only appears on the few postings
+   that actually say so. */
+.crew-popup-job .job-note {
+  color: #6b5a2e;
+  background: #fdf6e3;
+  border-left: 2px solid #f59e0b;
+  font-size: 11px;
+  font-style: italic;
+  padding: 2px 6px;
+  margin: 3px 0;
+}
+
 /* The apply link reuses the popup's link color; keep it on its own line. */
 .crew-popup-job a {
   display: inline-block;
