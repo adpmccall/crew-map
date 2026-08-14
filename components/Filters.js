@@ -8,7 +8,8 @@
 // organized into stacked, collapsible LAYERS, each with its own controls and its
 // own honest data-source label:
 //   • Crews  — the always-on base layer (symbolize mode + the four filters).
-//   • Hiring — a toggleable overlay (on/off) with the "hiring nearby" sub-filter.
+//   • Hiring — a toggleable overlay of posting pins, with filters for which
+//     postings count (appointment / pay grade / salary).
 // Adding a third layer later (e.g. Housing) is just another <LayerSection> block.
 
 // The Hiring layer's filter vocabulary lives in lib/jobFilters.js alongside the
@@ -99,9 +100,9 @@ export default function Filters({
   jobFieldsAvailable, // { appointment, grade, salary } — which hiring filters have data
   matchingJobCount, // postings passing the hiring-layer filters
   totalJobCount, // postings loaded in total
-  values, // current selections: { state:[], region:[], crewType:[], agency:[], housing:"", hiringNearby:false }
+  values, // current selections: { state:[], region:[], crewType:[], agency:[], housing:"", payGrade:[], appointment:[], salary:"" }
   onToggle, // (key, value) => void  — toggle one checkbox in a multi-select facet
-  onChange, // (key, value) => void  — set a single-select filter (housing / hiringNearby)
+  onChange, // (key, value) => void  — set a single-select filter (housing / salary)
   onClear, // () => void  — reset all filters
   shownCount, // how many crews are currently visible
   totalCount, // how many crews there are in total
@@ -109,16 +110,11 @@ export default function Filters({
   onModeChange, // (mode) => void  — switch symbolization mode
   hasJobs, // boolean — did any open USAJOBS postings load?
   jobsUpdatedLabel, // e.g. "Jul 17, 2026" — when the jobs data was last refreshed
-  hiringLayerOn, // boolean — is the Hiring layer enabled (rings + sub-filter active)?
+  hiringLayerOn, // boolean — is the Hiring layer enabled (posting pins shown)?
   onHiringLayerChange, // (on) => void  — turn the whole Hiring layer on/off
   isOpen, // MOBILE ONLY: is the drawer open? (desktop ignores this — always shown)
   onClose, // MOBILE ONLY: () => void — close the drawer
 }) {
-  // The "hiring nearby" sub-filter is on and enabled, but nothing matches → show
-  // a clear "nothing right now" message so it reads as empty, not broken.
-  const hiringEmpty =
-    values.hiringNearby && hasJobs && hiringLayerOn && shownCount === 0;
-
   return (
     <div className={`filter-panel${isOpen ? " is-open" : ""}`}>
       {/* MOBILE ONLY (hidden on desktop): drawer header with a close button. */}
@@ -224,16 +220,6 @@ export default function Filters({
           )
         }
       >
-        <label className="hiring-toggle">
-          <input
-            type="checkbox"
-            checked={values.hiringNearby}
-            onChange={(e) => onChange("hiringNearby", e.target.checked)}
-            // Only meaningful when the layer is on and jobs exist.
-            disabled={!hasJobs || !hiringLayerOn}
-          />
-          <span>Show only crews hiring nearby (within 50 mi)</span>
-        </label>
 
         {/* These three narrow the POSTINGS, not the crews. A crew whose last
             matching posting is filtered away loses its ring — same idea as any
@@ -281,19 +267,14 @@ export default function Filters({
         )}
 
         {/* Honest count whenever these filters are actually narrowing something,
-            so it's obvious the rings thinned out because of a filter and not
-            because the postings disappeared. */}
+            so it's obvious the posting pins thinned out because of a filter
+            and not because the postings disappeared. */}
         {hasJobs && matchingJobCount !== totalJobCount && (
           <div className="layer-source">
             {matchingJobCount} of {totalJobCount} postings match
           </div>
         )}
 
-        {hiringEmpty && (
-          <div className="hiring-empty-state">
-            No crews have open USAJOBS postings within 50 mi right now.
-          </div>
-        )}
       </LayerSection>
 
       <button type="button" className="filter-clear" onClick={onClear}>

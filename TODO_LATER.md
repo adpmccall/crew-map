@@ -17,6 +17,28 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
 - [ ] Revisit the ">8 duty-location" national-announcement noise filter if it
       ever drops real field postings.
 
+## Use USAJOBS' own coordinates instead of geocoding towns ourselves
+- [ ] **`refresh_jobs.py` geocodes `"{town}, {state}, USA"` through Nominatim —
+      but USAJOBS already hands us `Latitude`/`Longitude` on every
+      `PositionLocation`.** Verified on the live corpus: all 1376 location
+      entries carry coordinates.
+      **Same precision, not better** — USAJOBS reports exactly one coordinate
+      per city across all 155 cities, so it's a town centroid too. This is a
+      simplification, not an accuracy upgrade, with one exception below.
+      **What it removes:** the Nominatim call, its ~1 req/sec throttle, the
+      `job_geocache.json` cache, and the `actions/cache` step in the workflow
+      that exists only to preserve it.
+      **What it fixes:** the two sources agree to a median of 0.11 mi but
+      disagree badly on a few — Holloman AFB **17.3 mi**, Hawaii National Park
+      **13.3 mi** — where Nominatim resolved to a different feature. USAJOBS is
+      describing its own posting, so its answer is likelier right.
+      **Also worth grabbing while in there:** `AddressLine` (26 of 1376) gives a
+      facility NAME, not a street — "Yosemite National Park", "Central CA BLM
+      Bishop Field Office". Useless as a coordinate, but a nice popup label
+      where present.
+      Kept separate from the posting-markers change on purpose; it touches the
+      refresh pipeline, not the map.
+
 ## Housing layer — the next big build (future)
 - [ ] Add a **Housing** layer to the layers-based control panel. The panel was
       deliberately refactored into reusable `LayerSection`s so this is a clean

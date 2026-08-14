@@ -4,6 +4,8 @@
 // so the layout is easy to read and adjust, separate from the map logic.
 
 import { useEffect, useState } from "react";
+import { withProtocol, isHttpUrl } from "../lib/formatting";
+import PostingList from "./PostingList";
 
 // Housing is stored as "YES" / "NO" / "" (blank). Blank means we simply don't
 // know, so we show "Unknown" rather than implying "No".
@@ -12,25 +14,6 @@ function housingLabel(housing) {
   if (h === "YES") return "Yes";
   if (h === "NO") return "No";
   return "Unknown";
-}
-
-// Some website values are missing the "http://" part. Without a protocol the
-// browser treats the link as relative (it would point back at our own site), so
-// add https:// when there isn't one already.
-function withProtocol(url) {
-  if (/^https?:\/\//i.test(url)) return url;
-  return `https://${url}`;
-}
-
-// Show a friendly distance: under a mile reads as "<1 mi" rather than "0 mi".
-function formatDistance(miles) {
-  return miles < 1 ? "<1 mi" : `${Math.round(miles)} mi`;
-}
-
-// Only ever load an image over http(s). `photo_url` comes from third-party
-// (Atlas) data, so this keeps a stray value from becoming a surprise `src`.
-function isHttpUrl(url) {
-  return /^https?:\/\//i.test(url);
 }
 
 // One optional crew photo. These are hosted on Google My Maps, which means they
@@ -78,43 +61,6 @@ function Row({ label, value }) {
 // How many nearby jobs to list in the popup before we just show a "+N more"
 // summary — keeps a crew near a busy hiring town from producing a giant popup.
 const MAX_JOBS_SHOWN = 5;
-
-// Pay, shown EXACTLY as USAJOBS advertised it. The map filters on an annualized
-// figure so hourly and yearly postings can be compared, but that number is never
-// displayed — a seasonal posting says "$23.20/hr" here, because that is what it
-// actually pays. Showing an annualized $48,418 instead would look wrong to
-// anyone who then opened the posting.
-const RATE_SUFFIX = {
-  PH: "/hr",
-  PA: "/yr",
-  BW: "/pay period",
-  PD: "/day",
-  PM: "/month",
-};
-
-function formatPay(job) {
-  const { salary_min: min, salary_max: max, salary_interval: interval } = job;
-  if (min == null && max == null) return "";
-
-  // Hourly rates need cents ($23.20); annual salaries don't ($67,617).
-  const cents = interval === "PH";
-  const money = (n) =>
-    "$" +
-    Number(n).toLocaleString("en-US", {
-      minimumFractionDigits: cents ? 2 : 0,
-      maximumFractionDigits: cents ? 2 : 0,
-    });
-
-  // A single-grade posting often quotes one figure twice; don't print a range
-  // of a number to itself.
-  const range =
-    min != null && max != null && Number(min) !== Number(max)
-      ? `${money(min)} – ${money(max)}`
-      : money(min ?? max);
-
-  // An unrecognized interval falls back to no suffix rather than guessing.
-  return range + (RATE_SUFFIX[interval] || "");
-}
 
 // `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
 // by the map. It's empty (default) for crews with no open postings within range.
@@ -181,68 +127,22 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
         )}
       </dl>
 
-      {/* "Currently hiring" section — only appears when at least one open
-          USAJOBS posting is within 50 miles of this crew. We label it plainly
-          (these are nearby postings, not necessarily THIS crew's jobs) and link
-          straight to USAJOBS to apply. Up to 5 are shown, closest first. */}
+      {/* Open postings near this crew.
+          The wording is deliberate. This does NOT say the crew is hiring or
+          that these are its jobs — USAJOBS gives us a duty-station TOWN, never
+          a worksite, so any claim tying a posting to a specific crew would be
+          more than the data supports. What IS supportable is the distance from
+          this crew's coordinate to that town, which is what we show.
+          Postings are their own markers on the map now; this list is the
+          passive "what's around here" view for when you're already looking at
+          a crew. Up to 5, closest first. */}
       {nearbyJobs.length > 0 && (
         <div className="crew-popup-jobs">
-          <h4 className="crew-popup-jobs-title">
-            Open USAJOBS postings within 50 mi
-          </h4>
-          <ul className="crew-popup-jobs-list">
-            {nearbyJobs.slice(0, MAX_JOBS_SHOWN).map(({ job, distanceMi }) => (
-              <li key={job.id} className="crew-popup-job">
-                <div className="job-title">{job.title}</div>
-                <div className="job-meta">
-                  {job.town}, {job.state} · {formatDistance(distanceMi)}
-                </div>
-
-                {/* Appointment type and grade — the two things a firefighter
-                    checks first. Joined on one line and each part dropped when
-                    absent, so a posting missing one never leaves a stray "·". */}
-                {(job.appointment_type || job.pay_grade) && (
-                  <div className="job-meta">
-                    {[job.appointment_type, job.pay_grade]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                )}
-
-                {formatPay(job) && (
-                  <div className="job-meta">{formatPay(job)}</div>
-                )}
-
-                {/* Career seasonal: a PERMANENT appointment that works 6-11
-                    months a year, not year-round. USAJOBS codes it identically
-                    to a true year-round permanent job and only says so in free
-                    text, so we can spot it but never rule it out — it shows on
-                    the few postings that state it and stays silent otherwise.
-                    Deliberately a note, not a filter. */}
-                {job.career_seasonal && (
-                  <div className="job-note">
-                    Career seasonal — permanent, but not year-round
-                  </div>
-                )}
-                {job.apply_url && (
-                  <a
-                    href={withProtocol(job.apply_url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Apply on USAJOBS →
-                  </a>
-                )}
-              </li>
-            ))}
-          </ul>
-          {nearbyJobs.length > MAX_JOBS_SHOWN && (
-            <div className="job-more">
-              +{nearbyJobs.length - MAX_JOBS_SHOWN} more nearby
-            </div>
-          )}
+          <h4 className="crew-popup-jobs-title">Open postings near here</h4>
+          <PostingList postings={nearbyJobs} max={MAX_JOBS_SHOWN} />
         </div>
       )}
+
     </div>
   );
 }

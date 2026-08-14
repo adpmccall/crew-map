@@ -22,11 +22,12 @@ import "leaflet/dist/leaflet.css"; // Leaflet's own styles — required to rende
 import { supabase } from "../lib/supabaseClient";
 import { colorForRegion, REGIONS } from "../lib/regions";
 import { crewTypeFor, CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
-import { haversineMiles, HIRING_RADIUS_MI, hiringBandFor } from "../lib/proximity";
+import { haversineMiles, HIRING_RADIUS_MI } from "../lib/proximity";
 import { agencyLabel, agencyOrder } from "../lib/agencies";
 import { jobMatchesFilters, gradeOptionsFrom } from "../lib/jobFilters";
 import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
+import PostingPopup from "./PostingPopup";
 import Legend from "./Legend";
 
 // Open on the whole continental US, not just the West. This project's scope is
@@ -63,26 +64,45 @@ const CREW_TYPES = [
 
 // The "no filters applied" starting point. State/Region/Crew type are
 // multi-select, so they start as empty arrays (no boxes checked = no narrowing).
-// Housing stays single-select, so it starts as "" ("Any"). hiringNearby is the
-// "currently hiring" toggle and starts off (false = don't narrow by jobs).
+// Housing stays single-select, so it starts as "" ("Any").
 const EMPTY_FILTERS = {
   state: [],
   region: [],
   crewType: [],
   agency: [],
   housing: "",
-  hiringNearby: false,
-  // Hiring-layer filters. These narrow POSTINGS, not crews — a crew whose last
-  // matching posting is filtered away simply loses its ring (see lib/jobFilters).
+  // Hiring-layer filters. These narrow which POSTING PINS appear on the map.
+  // They no longer touch which crews render — see lib/jobFilters.
   payGrade: [],
   appointment: [],
   salary: "",
 };
 
-// The hiring ring is its own non-interactive layer, so it works IDENTICALLY in
-// both "region" and "type" modes without changing the pin itself, and never
-// steals clicks from the pin. Its APPEARANCE now depends on how far the nearest
-// posting actually is — see HIRING_BANDS in lib/proximity.js for why.
+// The posting pin: an amber teardrop marking a town with open USAJOBS postings.
+//
+// WHY A TEARDROP AND NOT A DOT. Crew pins in region mode are radius-6 filled
+// circles, and R2 Rocky Mountain is #ff7f0e — close enough to this amber that a
+// standalone amber DOT would read as an R2 crew. The silhouette is what keeps
+// them apart: a pin sits ON the map, a crew dot sits IN it, and the two are
+// never confused even at the same hue or at low zoom.
+//
+// When a town has more than one posting the count goes inside the head. That's
+// the only content the pin ever carries — no glyph — which keeps it legible
+// when the whole country is on screen.
+const POSTING_PIN_AMBER = "#f59e0b";
+
+function postingPinHtml(count) {
+  // A standard 24x30 map-pin path: circular head, tapering to a point at the
+  // bottom. The white stroke lifts it off dark forest tiles and water.
+  const svg = `
+    <svg width="24" height="30" viewBox="0 0 24 30" aria-hidden="true">
+      <path d="M12 29C12 29 22.5 16.5 22.5 10.5A10.5 10.5 0 1 0 1.5 10.5C1.5 16.5 12 29 12 29Z"
+            fill="${POSTING_PIN_AMBER}" stroke="#ffffff" stroke-width="2"
+            stroke-linejoin="round"/>
+    </svg>`;
+  const badge = count > 1 ? `<span class="posting-pin-count">${count}</span>` : "";
+  return `<span class="posting-pin">${svg}${badge}</span>`;
+}
 
 // Builds the little HTML label shown inside a crew-type DivIcon marker (used in
 // "symbol by crew type" mode). Mirrors how the Legend draws the same symbol.
@@ -115,9 +135,9 @@ export default function CrewMap() {
   // crews and deliberately NON-blocking: if the jobs read fails, the crew map
   // still works — the hiring toggle just shows an empty state.
   const [jobs, setJobs] = useState([]);
-  // Is the Hiring LAYER enabled? On by default so rings show on load exactly as
-  // before. Turning it off hides the rings, the popup jobs, and disables the
-  // "hiring nearby" sub-filter — a clean layer on/off, separate from that filter.
+  // Is the Hiring LAYER enabled? On by default. Turning it off hides the
+  // posting pins and the "near here" list inside crew popups — a clean layer
+  // on/off that never changes which crews are drawn.
   const [hiringLayerOn, setHiringLayerOn] = useState(true);
   // MOBILE ONLY: is the filter drawer open? Starts closed so the map is the
   // dominant thing on a phone. On desktop this is ignored — CSS keeps the panel
@@ -217,10 +237,9 @@ export default function CrewMap() {
   // tells us both "is this crew hiring?" and "which jobs to show in its popup".
   // 440 crews × ~32 jobs is a tiny amount of math; useMemo just avoids redoing
   // it on every render (only when crews or jobs change).
-  // The postings that pass the Hiring-layer filters. Everything downstream —
-  // rings, popup lists, the "hiring nearby" toggle — is built from THIS list
-  // rather than from every job, which is what makes a filtered-out posting take
-  // its ring with it.
+  // The postings that pass the Hiring-layer filters. The posting pins and the
+  // crew popups' "near here" lists are both built from THIS list, so filtering
+  // a posting out removes it from the map everywhere at once.
   const matchingJobs = useMemo(
     () => jobs.filter((job) => jobMatchesFilters(job, filters)),
     [jobs, filters]
@@ -230,10 +249,61 @@ export default function CrewMap() {
   // list can't go stale as USAJOBS adds grades (GW officially spans 1-15).
   const gradeOptions = useMemo(() => gradeOptionsFrom(jobs), [jobs]);
 
+  // Group the matching postings by their exact coordinate — which in practice
+  // means BY TOWN, because both USAJOBS and our geocoder resolve a duty station
+  // to a single town-centre point. Every posting in a town therefore lands on a
+  // byte-identical lat/lng: in the current data 48 of 98 postings share a point
+  // with at least one other, and Boise alone holds 6.
+  //
+  // So one pin per town, carrying a count, is the most precise honest marker
+  // available. Nudging them apart to make each individually clickable would
+  // fabricate a precision USAJOBS never gave us — the same overreach the old
+  // crew rings made, in a new form.
+  const postingTowns = useMemo(() => {
+    const byPoint = new Map();
+    for (const job of matchingJobs) {
+      if (job.latitude == null || job.longitude == null) continue;
+      const key = `${job.latitude},${job.longitude}`;
+      if (!byPoint.has(key)) {
+        byPoint.set(key, {
+          key,
+          position: [job.latitude, job.longitude],
+          town: job.town,
+          state: job.state,
+          postings: [],
+        });
+      }
+      byPoint.get(key).postings.push(job);
+    }
+    return [...byPoint.values()];
+  }, [matchingJobs]);
+
+  // One Leaflet icon per distinct count. Towns overwhelmingly hold 1-6
+  // postings, so this is a handful of icons reused across every pin rather than
+  // one built per marker.
+  const postingIcons = useMemo(() => {
+    const cache = new Map();
+    return (count) => {
+      if (!cache.has(count)) {
+        cache.set(
+          count,
+          L.divIcon({
+            className: "posting-marker", // drops Leaflet's default white box
+            html: postingPinHtml(count),
+            iconSize: [24, 30],
+            iconAnchor: [12, 30], // the pin's POINT sits on the coordinate
+            popupAnchor: [0, -28], // popup opens above the head
+          })
+        );
+      }
+      return cache.get(count);
+    };
+  }, []);
+
   // Which hiring filters have anything to work with. A control that can't match
   // anything is worse than no control — an empty "Pay grade" dropdown opens onto
   // nothing and reads as broken, and ticking "Permanent" when no posting carries
-  // an appointment type would silently clear every ring.
+  // an appointment type would silently clear every posting pin.
   //
   // This isn't only a first-run concern: these columns are populated by
   // refresh_jobs.py, so any posting USAJOBS returns without them lands here too.
@@ -369,12 +439,6 @@ export default function CrewMap() {
         if (!matchesAny) return false;
       }
 
-      // "Hiring nearby" sub-filter: when the Hiring layer is on AND this filter
-      // is checked, keep only crews with at least one open job within 50 mi.
-      // If the layer is off, this never narrows (the overlay isn't active).
-      if (hiringLayerOn && filters.hiringNearby && !nearbyJobsByCrew[crew.id]) {
-        return false;
-      }
 
       return true;
     });
@@ -502,29 +566,13 @@ export default function CrewMap() {
                 by the crew's type (lib/crewTypes.js). DivIcons are HTML, so they
                 also sidestep the missing-image problem. */}
         {visibleCrews.map((crew) => {
-          // Open jobs within 50 mi of this crew (undefined if none, or if the
-          // Hiring layer is turned off). Drives both the amber ring and the list
-          // shown in the popup — so toggling the layer off removes both at once.
+          // Open postings within 50 mi, for the passive list in this crew's
+          // popup (undefined if none, or if the Hiring layer is off). Nothing
+          // about the crew's own appearance depends on this any more.
           const nearbyJobs = hiringLayerOn
             ? nearbyJobsByCrew[crew.id]
             : undefined;
           const position = [crew.latitude, crew.longitude];
-
-          // The hiring ring: a separate, non-interactive CircleMarker drawn
-          // FIRST so the real pin sits on top of it. Because it's the same in
-          // both modes, the indicator looks consistent whether pins are region
-          // circles or crew-type symbols.
-          // nearbyJobs is sorted closest-first, so [0] is the nearest posting —
-          // that distance decides how prominently the ring is drawn.
-          const ring = nearbyJobs ? (
-            <CircleMarker
-              key={`ring-${crew.id}`}
-              center={position}
-              radius={12}
-              interactive={false}
-              pathOptions={hiringBandFor(nearbyJobs[0].distanceMi).pathOptions}
-            />
-          ) : null;
 
           if (mode === "type") {
             // Pass the active crew-type filter so a filtered pin shows the
@@ -532,7 +580,6 @@ export default function CrewMap() {
             const t = crewTypeFor(crew.resource, filters.crewType);
             return (
               <Fragment key={crew.id}>
-                {ring}
                 <Marker position={position} icon={typeIcons[t.key]}>
                   <Popup>
                     <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
@@ -545,7 +592,6 @@ export default function CrewMap() {
           const color = colorForRegion(crew.region);
           return (
             <Fragment key={crew.id}>
-              {ring}
               <CircleMarker
                 center={position}
                 radius={6}
@@ -562,6 +608,34 @@ export default function CrewMap() {
             </Fragment>
           );
         })}
+
+        {/* POSTING PINS — one per town with open postings, drawn last so they
+            sit above the crew layer. These are their own objects on the map,
+            not a property of any crew: a pin says "there are real openings in
+            this town", which is exactly what USAJOBS told us and no more.
+            The hiring-layer switch turns them off; the pay grade / salary /
+            appointment filters decide which postings count toward each pin. */}
+        {hiringLayerOn &&
+          postingTowns.map((t) => (
+            <Marker
+              key={`posting-${t.key}`}
+              position={t.position}
+              icon={postingIcons(t.postings.length)}
+              zIndexOffset={1000}
+            >
+              {/* maxHeight makes Leaflet scroll the popup internally instead of
+                  letting it run off the screen. A town with 6 postings (Boise
+                  today) is already taller than a laptop viewport, and the
+                  precision note at the bottom was falling below the fold. */}
+              <Popup maxHeight={320}>
+                <PostingPopup
+                  town={t.town}
+                  state={t.state}
+                  postings={t.postings}
+                />
+              </Popup>
+            </Marker>
+          ))}
       </MapContainer>
     </div>
   );

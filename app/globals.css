@@ -481,23 +481,6 @@ body {
 
 /* The amber ring swatch in the legend, matching the on-map hiring ring: a
    hollow circle with an amber stroke. */
-/* Border width/style/opacity are set inline per band, from HIRING_BANDS — the
-   same values Leaflet uses for the ring on the map. Only the shape lives here. */
-.hiring-ring-swatch {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  border: 2.5px solid #f59e0b;
-  box-sizing: border-box;
-  display: inline-block;
-}
-
-/* The "Open posting near crew" heading above the three distance-band rows.
-   Slightly muted so it reads as a group label, not another legend entry. */
-.legend-hiring-head {
-  font-weight: 600;
-  opacity: 0.75;
-}
 
 /* Give the hiring legend row a little breathing room from the entries above. */
 .legend-hiring-row {
@@ -745,4 +728,97 @@ body {
        max-width on very small phones, so the two rules can never fight. */
     min-width: min(240px, 76vw);
   }
+}
+
+/* ---------------------------------------------------------------------------
+   POSTING PINS — amber teardrops marking a town with open USAJOBS postings.
+
+   These replaced the amber rings that used to be drawn around crews. A ring on
+   a crew read as "this crew is hiring", which USAJOBS' data (a duty-station
+   town, never a worksite) can't support. A pin is its own object making a
+   weaker, true claim: there are openings in this town.
+   --------------------------------------------------------------------------- */
+
+/* Strip Leaflet's default white box + border from the DivIcon. */
+.posting-marker {
+  background: none;
+  border: none;
+}
+
+.posting-pin {
+  position: relative;
+  display: block;
+  /* A soft drop shadow is what makes the pin read as sitting ON the map rather
+     than in it — the main thing separating it from a flat crew dot. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+/* The count, centered in the pin's circular head. It is the only content a pin
+   ever carries — no glyph — so it stays legible at low zoom. Pointer events go
+   to the pin beneath, so clicking the number still opens the popup. */
+.posting-pin-count {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 21px; /* the head, not the tapering point */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* The legend's miniature of the same pin. */
+.posting-pin-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background: #f59e0b;
+  border: 1.5px solid #ffffff;
+  /* Three round corners + one point = a teardrop, matching the map marker. */
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* The popup behind a posting pin: every open posting in that town. */
+.posting-popup {
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  color: #111;
+  max-width: 250px;
+}
+
+.posting-popup-title {
+  margin: 0 0 2px;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.posting-popup-count {
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* The precision caveat. Small and last — present so nobody reads a pin as a
+   worksite, but never competing with the postings themselves. */
+.posting-popup-note {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+  color: #666;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.posting-popup a {
+  color: #b91c1c;
+  word-break: break-all;
 }

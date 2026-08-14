@@ -9,7 +9,6 @@
 import { useState } from "react";
 import { REGIONS } from "../lib/regions";
 import { CREW_TYPE_SYMBOLS, OTHER_TYPE } from "../lib/crewTypes";
-import { HIRING_BANDS } from "../lib/proximity";
 
 // Render one crew-type symbol the same way the map markers draw it, so the
 // legend and the pins look identical.
@@ -34,41 +33,23 @@ function TypeSymbol({ t }) {
   );
 }
 
-// The amber rings drawn around pins that have an open job nearby. Shown in the
-// legend (in BOTH modes) so the indicator on the map is explained. Only rendered
-// when there are jobs to match against.
+// The posting pin, explained in the legend (in BOTH symbolize modes) so the
+// amber teardrop on the map isn't a mystery. Only rendered when there are
+// postings to mark.
 //
-// One row per distance band, drawn FROM the same HIRING_BANDS
-// the map uses — so a swatch can never disagree with the ring it describes.
-// Each swatch mirrors that band's Leaflet stroke: weight -> border width,
-// opacity -> opacity, dashArray -> a dashed border.
+// It replaced three rows describing graded amber RINGS around crews. Those
+// rings claimed a job-to-crew connection that USAJOBS' data — a duty-station
+// town, never a worksite — could not support. A pin makes the weaker, true
+// claim: there are openings in this town.
 function HiringLegendRows({ show }) {
   if (!show) return null;
   return (
-    <>
-      <div className="legend-row legend-hiring-row legend-hiring-head">
-        <span>Open posting near crew</span>
-      </div>
-      {HIRING_BANDS.map((band) => {
-        const p = band.pathOptions;
-        return (
-          <div key={band.key} className="legend-row">
-            <span className="legend-symbol">
-              <span
-                className="hiring-ring-swatch"
-                style={{
-                  borderWidth: `${p.weight}px`,
-                  borderColor: p.color,
-                  borderStyle: p.dashArray ? "dashed" : "solid",
-                  opacity: p.opacity,
-                }}
-              />
-            </span>
-            <span>{band.label}</span>
-          </div>
-        );
-      })}
-    </>
+    <div className="legend-row legend-hiring-row">
+      <span className="legend-symbol">
+        <span className="posting-pin-swatch" />
+      </span>
+      <span>Town with open postings</span>
+    </div>
   );
 }
 
