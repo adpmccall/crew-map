@@ -177,15 +177,14 @@ export default function CrewMap() {
     async function loadJobs() {
       const { data, error } = await supabase
         .from("jobs")
-        .select(
-          // Supabase returns ONLY the columns named here. The hiring filters
-          // read pay_plan / grade_* / salary_* / appointment_type, so leaving
-          // them off this list makes every one of those controls silently
-          // vanish — the same trap that once hid crew_name from the popup.
-          "id, title, agency, town, state, latitude, longitude, apply_url, close_date, last_refreshed, " +
-            "pay_grade, pay_plan, grade_low, grade_high, salary_min, salary_max, salary_interval, " +
-            "salary_min_annual, salary_max_annual, appointment_type, career_seasonal"
-        )
+        // SELECT * on purpose. Supabase returns only the columns you name, and
+        // an explicit list here bit us three times: it hid crew_name from the
+        // popup, then every hiring filter control, then the pay grade — each
+        // time silently, because a missing column is just `undefined` and the
+        // build stays green. `jobs` is ~100 rows of small scalars, so the extra
+        // payload is negligible next to a failure mode that costs an hour.
+        // A new column added by refresh_jobs.py now just works.
+        .select("*")
         .not("latitude", "is", null)
         .not("longitude", "is", null);
 
