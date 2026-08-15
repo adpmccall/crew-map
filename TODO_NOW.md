@@ -47,11 +47,47 @@ ARCHITECTURE.md for the decisions.
 - [x] **Step 3 — Run + verify:** ran locally, `jobs` table populated (32 rows,
       good lat/lng + apply URLs). Migrated off the leaked legacy service_role key
       to the new `sb_secret_` key (scripts already handled both formats).
-- [x] **Map layer:** browser-side proximity match (haversine, 50-mi radius);
-      amber ring on hiring pins in BOTH modes; "hiring nearby" filter toggle;
-      popup lists nearby postings (≤5, closest first) with Apply-on-USAJOBS
-      links; "updated {date}" freshness label + empty states.
-      Verified: 90/440 crews light up; Redding/Flagstaff/Bishop ringed.
+- [x] **Map layer:** shipped as an amber ring on crews with a posting within
+      50 mi, plus a "hiring nearby" crew filter.
+      **⚠️ SUPERSEDED 2026-08-14 — both were removed.** Postings are their own
+      amber teardrop markers now, one per town with a count. The ring implied a
+      job-to-crew connection USAJOBS' data (a duty-station town, never a
+      worksite) can't support. Kept here only as a record of what was built;
+      see the "Postings as their own markers" section below for current
+      behaviour, and don't reintroduce the ring.
+- [x] **Automated + filterable:** daily GitHub Actions refresh; appointment /
+      pay grade / salary filters; pay, grade and appointment shown per posting.
+
+## Postings as their own markers — ✅ DONE (2026-08-14)
+Replaced the amber crew ring. A posting is now its own object on the map.
+- [x] **Amber teardrop per TOWN**, badged with a count when it holds more than
+      one. Shape (not colour) separates it from a crew dot: crew pins are
+      radius-6 circles and R2 is `#ff7f0e`, close enough to the hiring amber
+      that a standalone amber dot would read as an R2 crew.
+- [x] **One pin per town, never offset.** Every posting in a town shares a
+      byte-identical coordinate — 48 of 98 share a point, Boise holds 6 — so
+      one pin per posting would hide half of them. Spiderfying was rejected on
+      principle: it fabricates precision USAJOBS never gave us.
+- [x] **Removed:** the ring (flat and graded), `HIRING_BANDS`/`hiringBandFor`,
+      the legend's three ring rows, and the "show only crews hiring nearby"
+      crew filter.
+- [x] **Kept:** the crew popup's list, reworded to **"Open postings near here"**
+      — real computed distances, no ownership language.
+- [x] **New files:** `components/PostingPopup.js`, `components/PostingList.js`
+      (one posting renders identically in both places), `lib/formatting.js`.
+- [x] **Verified in-browser:** 66 pins / 66 points; 16 badges totalling 98
+      postings with the singles; 0 rings; crews unchanged at 829. Temporary →
+      13 pins / 13 postings, Permanent → 56 / 83, crew count never moves.
+
+## Agency filter — ✅ DONE (2026-08-14)
+- [x] `agency_schema.sql` + `agency_backfill_dryrun.py` / `_commit.py` classify
+      all 829 crews: usfs 582 · state 82 · nps 36 · local 28 · county 27 ·
+      blm 20 · tribal 20 · unknown 17 · other 10 · bia 5 · fws 2.
+- [x] `tribal` separate from `bia` (a nation is not the Bureau); FWS and USFWS
+      are one agency; the 17 `unknown` show as a visible checkbox.
+- [ ] **Optional, whenever:** hand-correct the 17 `unknown` rows in Supabase.
+      Writes are guarded by `agency=eq.unknown`, so corrections survive
+      re-runs. List them: `python3 agency_backfill_dryrun.py --unknown`.
 
 ## Panel UI: layers refactor + fixes — ✅ DONE
 - [x] Reorganized the control panel into collapsible **layer sections**

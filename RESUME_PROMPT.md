@@ -35,11 +35,32 @@ load it before doing anything.
        (.github/workflows/refresh-jobs.yml, 09:17 UTC, plus a manual Run
        workflow button) — do NOT run it by hand. Creds are encrypted Actions
        secrets; the Supabase one is a SEPARATE CI-only secret key.
-     * Map layer: browser-side 50-mi proximity match (lib/proximity.js); amber
-       ring on crews hiring nearby (both symbolize modes); a "hiring nearby"
-       filter; popup lists nearby postings with Apply-on-USAJOBS links; an
-       "updated {date}" freshness label. ~90/440 crews lit up when measured
-       (that count predates the Atlas merge below).
+     * Map layer: POSTINGS ARE THEIR OWN MARKERS — an amber teardrop per TOWN,
+       badged with a count when it holds more than one. There is NO amber ring
+       on crews any more and no "hiring nearby" crew filter; both were removed
+       2026-08-14. Do not reintroduce either. Reason: USAJOBS gives a
+       duty-station TOWN, never a worksite (it reports one coordinate per city
+       across all 155), so a ring drawn on a crew claimed a job-to-crew
+       connection the data can't support. A pin claims only "there are openings
+       in this town".
+       - One pin per TOWN because every posting in a town shares a
+         byte-identical coordinate (48 of 98 postings share a point; Boise
+         holds 6). DO NOT offset or spiderfy them — that fabricates precision
+         we don't have, which is the same mistake the ring made.
+       - Crew popups KEEP a passive "Open postings near here" list (50 mi, real
+         computed distances, no ownership language). That's fine; it's a
+         geographic fact, not a claim about the crew.
+     * Hiring filters: appointment (Permanent/Temporary), pay grade (derived
+       from the data, currently 2-13), salary ("at least" thresholds). They
+       narrow POSTINGS only — the crew count never moves. Pay is displayed
+       exactly as advertised ($/hr stays $/hr); the annualized figure is for
+       sorting and is never shown.
+   - The AGENCY filter is DONE. crews.agency classifies all 829 rows (usfs 582,
+     state 82, nps 36, local 28, county 27, blm 20, tribal 20, unknown 17,
+     other 10, bia 5, fws 2). 'tribal' is deliberately separate from 'bia'; FWS
+     and USFWS are ONE agency. The 17 'unknown' are shown honestly as a
+     checkbox and are hand-correctable in Supabase — every write is guarded by
+     agency=eq.unknown so your corrections survive re-runs.
    - Phase 2.6 "Wildland Fire Handcrew Atlas" merge is DONE and verified in
      Supabase. Permission to USE the Atlas data is now SECURED (it was pending
      before) — but the source KMZ is still NOT republished; it, the review CSVs,
@@ -110,7 +131,7 @@ load it before doing anything.
       import for photo_url only, and don't regress the graceful-hide behavior.
 
    c) DONE (2026-08-14) — refresh_jobs.py is automated. Nothing to do here.
-      Only relevant if "hiring nearby" ever looks stale: GitHub DISABLES
+      Only relevant if the hiring data ever looks stale: GitHub DISABLES
       SCHEDULED WORKFLOWS AFTER 60 DAYS of repo inactivity, so check the
       Actions tab before debugging anything else.
 

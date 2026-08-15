@@ -71,15 +71,52 @@ landing page.** Viewing/searching is always login-free.
   fresh `last_refreshed`, 0 missing coords, 0 past their close date.
   **⚠️ GitHub disables scheduled workflows after 60 days of repo inactivity** —
   check that first if the hiring data ever looks stale.
-- **Map layer:** browser-side proximity match (`lib/proximity.js`, haversine,
-  **50-mi radius**). Crews with an open job within 50 mi get an **amber ring**
-  (works in both symbolize modes). A **"hiring nearby" filter** narrows to those
-  crews. The popup lists nearby postings (≤5, closest first) with
-  **Apply-on-USAJOBS** links. Honest **"updated {date}"** freshness label + empty
-  states. **264 of 829 crews (32%) currently light up** — measured 2026-08-14
-  against the automated refresh. (It was 90/440 when built; the ring logic is
-  coordinate-based, so the Atlas crews participate. Rings now appear on state,
-  NPS, BLM, tribal, county and local crews, not just USFS.)
+- **Map layer:** postings are their own amber teardrop markers — see Phase 2.8
+  below. (This replaced the original amber ring drawn around nearby crews.)
+- **Filters + posting detail ✅** — the Hiring layer filters by **appointment**
+  (Permanent / Temporary), **pay grade** (options derived from the loaded
+  postings, currently 2–13) and **salary** ("at least" thresholds). Each posting
+  shows its appointment type, grade and **pay exactly as advertised** — an
+  hourly posting reads `$25.37 – $28.69/hr`, never the annualized figure used
+  for sorting. Postings that explicitly say **career seasonal** carry a small
+  note (permanent, but not year-round); it is never a filter, because USAJOBS
+  codes career-seasonal identically to year-round permanent and only reveals it
+  in free text — 38 of 44 permanent postings say nothing either way.
+- **Backing columns** (`jobs_filters_schema.sql`): `salary_interval` +
+  `salary_min/max_annual`, `appointment_code` + `appointment_type`,
+  `career_seasonal`, `pay_plan`, `grade_low/high`. Appointment codes were
+  verified against USAJOBS' **official published code list**, not inferred from
+  posting prose — which caught a real error (15327 is "Multiple", not
+  "Detail/Temporary Promotion").
+
+### Phase 2.8 — Postings as their own markers ✅ DONE (2026-08-14)
+The "currently hiring" feature originally showed a posting only *implicitly*,
+as an amber ring around a nearby crew. **That ring is gone entirely.**
+
+- **Why.** A ring on a crew reads as "this crew is hiring". USAJOBS gives a
+  duty-station **town**, never a worksite — verified: it reports exactly one
+  coordinate per city across all 155, and its `AddressLine` (26 of 1376) is a
+  facility *name* like "Yosemite National Park", not a street. So tying a
+  posting to a particular crew was always more than the data could support. The
+  ring was removed outright rather than kept alongside the fix.
+- **What replaced it.** An **amber teardrop per TOWN**, badged with a count when
+  it holds more than one. A pin says only "there are real openings here".
+- **Why one pin per town.** Every posting in a town lands on a byte-identical
+  coordinate — 48 of 98 postings share a point, Boise holds 6 — so one pin per
+  posting would hide half of them. **Offsetting/spiderfying was rejected on
+  principle:** nudging pins apart would fabricate precision USAJOBS never gave
+  us, the same overreach as the ring.
+- **Why a teardrop, not a dot.** Crew pins are radius-6 circles and R2 Rocky
+  Mountain is `#ff7f0e`, close enough to the hiring amber that an amber *dot*
+  would read as an R2 crew. Shape does the work.
+- **Also removed: the "show only crews hiring nearby" filter.** It reshaped the
+  whole map on crew proximity — nearer to the ring's mistake than a passive list
+  is. The crew popup **keeps** its list, reworded to **"Open postings near
+  here"** with real computed distances and no ownership language.
+- **Verified in-browser:** 66 pins for 66 distinct points, 16 count badges
+  totalling 98 postings with the singles, zero rings, crews unchanged at 829.
+  Temporary → 13 pins / 13 postings; Permanent → 56 / 83; and "Showing 829 of
+  829 crews" never moves, because posting filters no longer touch crews.
 
 ### Supabase key migration ✅
 - The original **legacy `service_role` key was exposed** (pasted into chat) and
@@ -202,6 +239,39 @@ boundary data, no new service, no cost.
   by eye; searching by content found the rest. 3 of the 58 are `usfs_official`
   rows enriched by the Atlas, so that write is guarded by **id, not by source** —
   a source filter would have silently skipped them.
+
+### Agency filter — who employs each crew ✅ DONE (2026-08-14)
+`source` records where a ROW came from (usfs_official / handcrew_atlas /
+user_submitted), not who employs the crew. Since the Atlas merge the table mixes
+ten-odd agencies with no way to tell them apart. `crews.agency` fixes that.
+
+- **`agency_schema.sql`** adds a NOT NULL `agency` column defaulting to
+  `'unknown'`, constrained to 11 values and indexed.
+- **`agency_backfill_dryrun.py`** classifies; read-only, no write path in the
+  file. **`agency_backfill_commit.py`** writes, importing the matcher so they
+  can't drift — dry-run default, `--commit`, `--rollback`, snapshot first.
+- **How it's decided:** the 440 curated rows are `usfs` **by provenance**, no
+  guessing. The 389 Atlas rows are inferred from **website domain** first
+  (strongest — `fs.usda.gov`, `blm.gov`, `dnr.wa.gov`, county domains), then
+  `forest` / `notes` / `crew_name` text, plus a tiny explicit table for units
+  identifiable by name alone (SEKI, Kilauea…). Two domains are treated as **zero
+  evidence**: `nifc.gov` (interagency) and social links.
+- **Result, verified:** usfs 582 · state 82 · nps 36 · local 28 · county 27 ·
+  blm 20 · tribal 20 · **unknown 17** · other 10 · bia 5 · fws 2 = 829.
+- **`tribal` is separate from `bia`, deliberately** — a tribal government is not
+  the Bureau of Indian Affairs. Where a row names a nation *and* "BIA" the
+  nation wins, because the crew belongs to the community, not the paperwork.
+- **`fws` is first-class from the start** despite only 2 rows, since Phase 3
+  submissions are expected to add more. Note **FWS and USFWS are one agency**;
+  a naive `\bfws\b` regex misses "USFWS" and did silently mislabel a crew during
+  development.
+- **The 17 `unknown` rows are shown honestly** — a visible "Unknown" checkbox,
+  not hidden. Every write is guarded by `agency=eq.unknown`, so **hand-corrections
+  in Supabase survive re-runs**; that guard is the whole reason this lives in a
+  column instead of the browser. `--reclassify` lifts it deliberately.
+  List them with `python3 agency_backfill_dryrun.py --unknown`.
+- **`lib/agencies.js`** owns the vocabulary and ordering, the way
+  `lib/regions.js` owns regions. Options are gated to agencies actually present.
 
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never

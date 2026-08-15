@@ -118,12 +118,38 @@ at $0.
   are administrative HQ lists, not field stations; we exclude them so a job maps
   to real towns.
 - **One posting → many town rows.** A posting open in several towns is expanded
-  into one `jobs` row per geocoded duty-station town (so it can light up the
-  right pins).
-- **Proximity matching in the browser, radius 50 miles.** The app compares crew
-  lat/lng to job lat/lng client-side; a crew "lights up as hiring" when an open
-  job falls within 50 mi. (50 mi chosen from a dry-run: ~90/440 crews light up —
-  enough to feel alive, still a genuine commute-shed. See the exploration notes.)
+  into one `jobs` row per geocoded duty-station town.
+- **Postings are their own markers — an amber teardrop per TOWN.** Superseded
+  the original design, where a posting showed only as an amber ring around a
+  nearby crew (later graded by distance).
+
+  **Why the ring went.** A ring drawn on a crew reads as "this crew is hiring".
+  USAJOBS gives a duty-station **town**, never a worksite — and neither its
+  coordinates nor ours are finer than a town centroid — so tying a posting to a
+  particular crew was always a stronger claim than the data supports. A pin
+  makes the weaker, true claim: there are real openings in this town. The ring
+  was removed outright rather than kept as a secondary signal, which would have
+  preserved the same overreach next to its fix.
+
+  **Why one pin per town, with a count.** Every posting in a town resolves to a
+  byte-identical coordinate: 48 of 98 live postings share a point, and Boise
+  holds 6. One pin per posting would leave half of them invisible and
+  unclickable. **Offsetting or spiderfying them is rejected on principle** —
+  nudging pins apart fabricates spatial precision USAJOBS never gave us. The
+  town is the data's real granularity, so it is the map's unit.
+
+  **Why a teardrop, not a dot.** Crew pins are radius-6 filled circles and R2
+  Rocky Mountain is `#ff7f0e`, close enough to the hiring amber that a
+  standalone amber dot would read as an R2 crew. Shape carries the distinction:
+  a pin sits *on* the map, a dot sits *in* it.
+- **Crew↔posting proximity survives in exactly one place.** The crew popup lists
+  "Open postings near here" within 50 mi, with real computed distances. That is
+  a geographic statement the data supports, shown passively when you are already
+  looking at a crew. The **"show only crews hiring nearby" filter was removed** —
+  it reshaped the whole map on proximity, which is what the ring got wrong.
+- **The hiring filters narrow POSTINGS, never crews.** Appointment / pay grade /
+  salary decide which posting pins appear and what a crew popup lists. The crew
+  count never moves when you touch them.
 
 ## Phases
 
@@ -175,14 +201,36 @@ at $0.
      noise → expand to town duty-stations → geocode (reuse `job_geocache.json`)
      → upsert into `jobs` (secret key, local-only) → prune closed postings.
      Re-runnable; refuses to wipe the table on an empty/bad pull.
-  3. **Map layer** — browser-side proximity match (`lib/proximity.js`, haversine,
-     50-mi radius): amber ring on hiring pins in BOTH symbol modes; a "hiring
-     nearby" filter toggle; the crew popup lists nearby postings (≤5, closest
-     first) with Apply-on-USAJOBS links; a visible "updated {date}" label and
-     clear empty states.
-- **Definition of done — met:** `jobs` populated (32 rows) and public-readable;
-  refresh is safe/re-runnable; the map lights up hiring crews (verified 90/440,
-  incl. Redding/Flagstaff/Bishop) without breaking either existing mode.
+  3. **Map layer** — originally an amber ring on crews with a posting within
+     50 mi, plus a "hiring nearby" crew filter. **Both were replaced on
+     2026-08-14** by standalone posting markers; see the decision above and
+     Phase 2.8 below.
+  4. **Automated refresh** — `.github/workflows/refresh-jobs.yml` runs the
+     script daily at 09:17 UTC. No more running it by hand.
+  5. **Filters + posting detail** — appointment type, pay grade and salary
+     narrow which postings appear; each posting shows its pay exactly as
+     advertised, its grade and its appointment type.
+- **Definition of done — met:** `jobs` populated and public-readable; refresh is
+  safe, re-runnable and automated; open postings are findable on the map.
+
+### Phase 2.8 — Postings as their own markers  · ICING · ✅ DONE (2026-08-14)
+- **Goal:** stop representing a posting implicitly, as a property of a nearby
+  crew, and give it its own marker making only the claim the data supports.
+- **What shipped:**
+  - **An amber teardrop per town with open postings**, badged with a count when
+    it holds more than one (`postingPinHtml` / `postingTowns` in `CrewMap.js`).
+  - **`PostingPopup`** — every posting in that town, no cap, with a standing
+    note that the location is the duty-station town and not a worksite.
+    `maxHeight` scrolls it internally; Boise's 6 already overflow a laptop.
+  - **`PostingList`** — one component renders a posting identically in the town
+    popup and in a crew popup's "near here" list, so they cannot drift.
+  - **Removed:** the amber ring (both the flat and distance-graded versions),
+    `HIRING_BANDS` / `hiringBandFor`, the legend's three ring rows, and the
+    "show only crews hiring nearby" filter.
+- **Definition of done — met, verified in-browser against live data:** 66 pins
+  for 66 distinct points; 16 count badges which with the singles total 98
+  postings; zero rings; crews unchanged at 829. Filtering to Temporary gives
+  13 pins / 13 postings and Permanent 56 / 83, while the crew count never moves.
 - **Security note:** the original legacy `service_role` key was exposed and has
   been rotated; we migrated to Supabase's new key system (`sb_secret_` for the
   local script, `sb_publishable_` for the app at deploy time).
@@ -214,9 +262,21 @@ at $0.
   Alaska regions — just an incomplete one (~14 crews).** Filling them out is
   tracked in `TODO_NOW.md`.
 - **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
-  `refresh_jobs.py`, 32-row `jobs` table) and the map layer (proximity rings,
-  hiring toggle, jobs-in-popup) both shipped and verified. Legacy service_role
-  key rotated to the new `sb_secret_`/`sb_publishable_` key system.
+  `refresh_jobs.py`, ~98-row `jobs` table) plus a **daily GitHub Actions
+  refresh**. Legacy service_role key rotated to the new
+  `sb_secret_`/`sb_publishable_` system; the workflow uses a separate CI-only
+  secret key.
+- **Phase 2.8 (Postings as markers): ✅ done 2026-08-14.** Postings are amber
+  teardrops, one per town with a count. The amber crew ring and the "hiring
+  nearby" crew filter are gone — see the decision above for why.
+- **Agency filter: ✅ done.** `crews.agency` classifies all 829 rows (usfs 582 ·
+  state 82 · nps 36 · local 28 · county 27 · blm 20 · tribal 20 · unknown 17 ·
+  other 10 · bia 5 · fws 2). See `agency_schema.sql` +
+  `agency_backfill_dryrun.py` / `_commit.py`; 17 remain honestly `unknown` and
+  are hand-correctable.
+- **Hiring filters: ✅ done.** Appointment (Permanent/Temporary), pay grade
+  (derived from the data) and salary (annualized for comparison, displayed as
+  posted). Columns from `jobs_filters_schema.sql`.
 - Files present: `crews_cleaned.json`, `geocode.py`, `crews_with_coords.json`,
   `import_to_supabase.py`, `schema.sql`, `jobs_schema.sql`, `refresh_jobs.py`,
   the Next.js app (now incl. `lib/proximity.js` + the jobs layer), plus
