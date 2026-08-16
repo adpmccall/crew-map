@@ -58,6 +58,26 @@ ARCHITECTURE.md for the decisions.
 - [x] **Automated + filterable:** daily GitHub Actions refresh; appointment /
       pay grade / salary filters; pay, grade and appointment shown per posting.
 
+## Public crew submissions (Phase 3 v1) — ⚠️ BUILT, NOT YET LIVE
+Our answer to nationwide coverage: let the people who work the missing crews add
+them, instead of hand-sourcing data. Nothing goes live without human approval.
+- [x] `crew_submissions_schema.sql` — own table (NOT `crews`), anon INSERT only
+      with no SELECT, status pinned to 'pending' by RLS, length/shape CHECKs, a
+      rate-limit trigger (60/hour global, 5/day per email), plus
+      `approve_submission()` / `reject_submission()` and a `pending_submissions`
+      review view. Both functions are revoked from anon.
+- [x] `/submit` page + `components/SubmitForm.js` — crew name, agency, town +
+      state (geocoded live via Nominatim), crew types, optional website/notes,
+      required email. Honeypot + 4-second minimum + 30s cooldown.
+- [x] Map link gated behind `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`.
+- [ ] **STEP 1 (owner):** run `crew_submissions_schema.sql` in the Supabase SQL
+      editor. Until this runs the form loads but submitting fails.
+- [ ] **STEP 2 (owner):** after reviewing, set
+      `NEXT_PUBLIC_SUBMISSIONS_ENABLED=true` in Vercel and redeploy to make the
+      link visible. Leaving it unset keeps the feature invisible to the public.
+- **Reviewing:** `select * from pending_submissions;` then
+  `select approve_submission(id);` or `select reject_submission(id, 'why');`
+
 ## Postings as their own markers — ✅ DONE (2026-08-14)
 Replaced the amber crew ring. A posting is now its own object on the map.
 - [x] **Amber teardrop per TOWN**, badged with a count when it holds more than

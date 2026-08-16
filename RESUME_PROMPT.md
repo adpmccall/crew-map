@@ -109,6 +109,16 @@ load it before doing anything.
    - The control panel was refactored into collapsible LAYERS (Crews = base,
      Hiring = toggleable overlay) — built so a Housing layer is a clean add.
 
+   - PUBLIC CREW SUBMISSIONS (Phase 3 v1) are BUILT but NOT YET LIVE.
+     crew_submissions_schema.sql + /submit + components/SubmitForm.js.
+     Submissions go to their own crew_submissions table (NEVER directly into
+     crews), anon can INSERT but NOT SELECT (it holds emails), RLS pins
+     status='pending', a trigger rate-limits, and approve_submission(id) copies
+     an approved row into crews with source='user_submitted'. Review with
+     `select * from pending_submissions;`. TWO OWNER STEPS REMAIN: run the
+     schema SQL, and set NEXT_PUBLIC_SUBMISSIONS_ENABLED=true in Vercel to make
+     the map link visible.
+
 4. Open items (confirm with me before starting anything):
 
    a) FINISH NATIONWIDE COVERAGE (the open work item in TODO_NOW.md). THIS

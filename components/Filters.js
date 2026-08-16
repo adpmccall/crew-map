@@ -280,6 +280,19 @@ export default function Filters({
       <button type="button" className="filter-clear" onClick={onClear}>
         Clear filters
       </button>
+
+      {/* The public submission entry point, behind an env flag.
+          NEXT_PUBLIC_SUBMISSIONS_ENABLED must be the string "true" for this to
+          appear. It exists so the feature can be reviewed on a deploy before
+          anyone can find it, and so it can be switched off from Vercel in
+          seconds if submissions ever turn into a problem — no code change, no
+          redeploy of the map itself. The /submit route stays reachable by URL
+          either way; this only controls discoverability. */}
+      {process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true" && (
+        <a className="filter-submit-link" href="/submit">
+          + Add a missing crew
+        </a>
+      )}
     </div>
   );
 }

@@ -273,6 +273,36 @@ ten-odd agencies with no way to tell them apart. `crews.agency` fixes that.
 - **`lib/agencies.js`** owns the vocabulary and ordering, the way
   `lib/regions.js` owns regions. Options are gated to agencies actually present.
 
+### Phase 3 v1 — public crew submissions ⚠️ BUILT, NOT YET LIVE (2026-08-15)
+The answer to the coverage gap: rather than hand-sourcing R8/R9/R10 data, let
+the people who work those crews add them. **Nothing appears on the map without a
+human approving it.**
+
+- **Submissions land in their own table.** `crew_submissions`, never `crews`.
+  This is the first public WRITE path in the project, so the write surface is
+  kept off the map's data entirely: `crews` stays public-SELECT-only, and a
+  flooded queue can be emptied with no consequence. Approving copies the row
+  into `crews` with `source='user_submitted'`.
+- **Anonymous, no auth** — the publishable key is in the browser bundle by
+  design, so anyone can POST directly. The defenses assume that:
+  anon may INSERT but **not SELECT** (the table holds emails and must not be
+  harvestable), RLS `WITH CHECK` pins `status='pending'` so nobody can
+  self-approve, CHECK constraints bound every field, and a trigger caps 60
+  submissions/hour and 5/day per email — the only rate limit available, since
+  PostgREST doesn't expose client IP to policies. `approve_submission()` and
+  `reject_submission()` are revoked from anon so they can't be called via RPC.
+- **Review is plain SQL**, no admin UI: `select * from pending_submissions;`
+  then `approve_submission(id)` / `reject_submission(id, 'why')`.
+- **Location** is town + state, geocoded in the browser at submit time through
+  the same Nominatim service `geocode.py` uses — same town-centre precision as
+  every other pin. A failed lookup still accepts the submission with NULL
+  coords and flags it in the review view. **This is the first time the live app
+  calls Nominatim**; it was build-time only before.
+- **Gated:** the map's "Add a missing crew" link only renders when
+  `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`, so it can be reviewed on a live
+  deploy before anyone can find it, and killed from Vercel without a code change.
+- **Two owner steps remain:** run the schema SQL, then flip the env flag.
+
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never
   force-pushes main). Used for every commit — don't run git by hand.

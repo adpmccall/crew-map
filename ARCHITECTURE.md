@@ -235,8 +235,44 @@ at $0.
   been rotated; we migrated to Supabase's new key system (`sb_secret_` for the
   local script, `sb_publishable_` for the app at deploy time).
 
-### Phase 3+ — Community features  · ICING · ⬜ DEFERRED
-- **Goal:** let people contribute crew data.
+### Phase 3 — Community submissions (v1)  · ✅ DONE (2026-08-15)
+- **Goal:** fill nationwide coverage gaps organically, by letting the people who
+  work these crews add the ones we're missing — instead of hand-sourcing data.
+- **Key decision: submissions land in their own table, never in `crews`.**
+  `crew_submissions` is the only table the public can write to. `crews` keeps
+  public-SELECT-only exactly as before, so the live map cannot be touched by a
+  submitter, and a flooded queue can be emptied without consequence. Approval
+  copies the row into `crews` with `source='user_submitted'` — the value
+  reserved for this back in atlas_schema.sql.
+- **Anonymous, by design.** No auth system. The publishable key ships in the
+  browser, so anyone can POST directly without our form; the defenses assume
+  that rather than pretending otherwise:
+  - anon may INSERT but **not SELECT** — the table holds submitter emails and
+    must never be publicly readable or enumerable;
+  - the RLS `WITH CHECK` pins `status='pending'`, so nobody can self-approve;
+  - CHECK constraints bound every field's length and shape;
+  - a `BEFORE INSERT` trigger caps 60 submissions/hour globally and 5/day per
+    email, which is the only rate limit available (PostgREST doesn't expose the
+    client IP to policies);
+  - `approve_submission()` / `reject_submission()` are revoked from anon so they
+    can't be called through PostgREST's RPC endpoint.
+  **The real gate is human approval.** Everything else just keeps the queue
+  small enough to read.
+- **Reviewing is plain SQL**, no admin UI: `select * from pending_submissions;`
+  then `select approve_submission(id);` or `reject_submission(id, 'why')`.
+- **Location:** town + state, geocoded in the browser at submit time via the
+  same free Nominatim service `geocode.py` uses — so a submitted crew lands at
+  the same town-centre precision as every other pin. A failed lookup still
+  accepts the submission with NULL coordinates and flags it in the review view.
+  Note this is the first time the *live app* calls Nominatim; it was previously
+  build-time only.
+- **Discoverability is env-gated:** the map only shows the "Add a missing crew"
+  link when `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`, so the feature can be
+  reviewed on a live deploy before anyone can find it, and switched off from
+  Vercel in seconds without a code change.
+
+### Phase 3+ — Community features (rest)  · ICING · ⬜ DEFERRED
+- **Goal:** editing existing crews, accounts, a moderation UI.
 - **Definition of done:** add/edit/submit crews, accounts, moderation —
   **with viewing/search staying login-free**; only editing requires auth. Decide
   *who* can edit before building any write access.
