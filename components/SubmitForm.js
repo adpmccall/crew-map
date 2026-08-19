@@ -230,9 +230,9 @@ export default function SubmitForm() {
 
         <h1>Add a crew</h1>
         <p className="submit-intro">
-          This started from a Forest Service list that's mostly western, so
-          there are gaps. If you know a crew that isn't on the map, put it here.
-          Someone reads these before anything goes up.
+          There are gaps in this map — plenty of crews aren't on it yet. If
+          you know one that's missing, put it here. Someone reads these before
+          anything goes up.
         </p>
 
         <label>

@@ -10,15 +10,20 @@
 // no way to know either exists. So "/" explains the place, and "/map" is one
 // click away (and bookmarkable, so regulars never see this page twice).
 //
-// STRUCTURE: the three cards below come from one array. Adding a fourth is a
-// single object with no layout work — the grid reflows on its own. That's
-// deliberate; more will land here.
+// STRUCTURE: the cards below come from one array. Adding another is a single
+// object with no layout work — the grid reflows on its own. That's deliberate;
+// more will land here.
 
 import Link from "next/link";
 
-// Each card is { href, external?, eyebrow, title, body, cta }.
+// Each card is { href, eyebrow, title, body, cta, requiresSubmissions? }.
 // `eyebrow` is the small label above the title — it's what makes a card
 // skimmable when there are six of these instead of three.
+//
+// `requiresSubmissions` ties a card to NEXT_PUBLIC_SUBMISSIONS_ENABLED, the
+// same switch that controls the map panel's link. ONE flag governs every door
+// into the submission flow — two independent ways in would drift, and one of
+// them would eventually be pointing at a feature the other had turned off.
 const SECTIONS = [
   {
     href: "/map",
@@ -45,14 +50,20 @@ const SECTIONS = [
     eyebrow: "Add to it",
     title: "Submit a crew",
     body:
-      "The list this started from is mostly western, so there are gaps — whole " +
-      "regions of it. If you know a crew that isn't here, add it. Someone reads " +
-      "every submission before it goes on the map.",
+      "There are gaps — plenty of crews aren't on here yet. If you know one " +
+      "that's missing, add it. Someone reads every submission before it goes " +
+      "on the map.",
     cta: "Add a crew",
+    requiresSubmissions: true,
   },
 ];
 
 export default function Landing() {
+  // Same switch the map panel uses. Not "true" means every route into the
+  // submission flow is closed at once, which is the point of having one flag.
+  const submissionsOn = process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true";
+  const sections = SECTIONS.filter((s) => !s.requiresSubmissions || submissionsOn);
+
   return (
     <div className="landing">
       <header className="landing-hero">
@@ -61,16 +72,13 @@ export default function Landing() {
           A map of wildland fire crews in the US — where they are, who they work
           for, and what's hiring near them.
         </p>
-        <p className="landing-sub">
-          Free, no account, nothing to sign up for.
-        </p>
         <Link className="landing-cta" href="/map">
           Open the map →
         </Link>
       </header>
 
       <main className="landing-grid">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <Link key={s.eyebrow} className="landing-card" href={s.href}>
             <span className="landing-eyebrow">{s.eyebrow}</span>
             <h2>{s.title}</h2>
@@ -80,35 +88,6 @@ export default function Landing() {
         ))}
       </main>
 
-      {/* Honest about what's here and what isn't. The coverage gap is the whole
-          reason the submission form exists, so it belongs on the front page
-          rather than buried — someone who notices their region is thin is
-          exactly the person who can fix it. */}
-      <footer className="landing-foot">
-        <h3>Where the data comes from</h3>
-        <p>
-          Crew locations started from a US Forest Service list and grew from
-          there, including crews outside the Forest Service — BLM, Park Service,
-          tribal, state, county and local. Coverage is still strongest in the
-          West and thinner elsewhere; that's a gap in what we have, not a limit
-          on what belongs here.
-        </p>
-        <p>
-          Job postings come from USAJOBS and are refreshed daily. A posting's
-          location is the duty-station town it lists, not a specific base.
-        </p>
-        <p className="landing-foot-links">
-          <Link href="/map">Map</Link>
-          <Link href="/submit">Add a crew</Link>
-          <a
-            href="https://github.com/adpmccall/crew-map"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Source
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }
