@@ -50,6 +50,14 @@ That changes how you write:
 Source file: **`crews_cleaned.json`** — a JSON array of **440** Forest Service
 crew records (the spec said "~440"; it's exactly 440).
 
+**⚠️ 440 is the SOURCE FILE, not the live dataset.** The Supabase `crews` table
+holds **829 rows**: the original 440 (still `source='usfs_official'`) plus 389
+added by the Handcrew Atlas merge, and it grows again as public submissions are
+approved. Every count in this section — 440 records, 6 regions, 16 states,
+371 websites — describes `crews_cleaned.json` as it was imported, and is
+deliberately left as a record of that file. For what's actually on the map,
+query the table or see `SESSION_SYNOPSIS.md`.
+
 Each record has these 12 fields:
 
 ```
