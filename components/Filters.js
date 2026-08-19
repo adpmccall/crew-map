@@ -293,6 +293,13 @@ export default function Filters({
           + Add a missing crew
         </a>
       )}
+
+      {/* Way back to the landing page. Ungated — unlike the submission form,
+          the landing page always exists, and without this the only route back
+          is editing the URL. */}
+      <a className="filter-about-link" href="/">
+        About this map
+      </a>
     </div>
   );
 }

@@ -12,12 +12,13 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
   - [x] `TROUTLAKE` → `TROUT LAKE, WASHINGTON` (Gifford Pinchot NF)
 - [x] Confirm 440/440 have non-null lat/lng (`still_missing.csv` empty)
 
-## Phase 1 (the product — map is the landing page) — ✅ map + filters done
+## Phase 1 (the product) — ✅ map + filters done
 - [x] Create a Supabase project (free tier)
 - [x] Create a `crews` table (schema.sql) + grant anon read (fixes 42501)
 - [x] Import all 440 crews into the `crews` table
 - [x] Scaffold the Next.js app (deployable to Vercel)
-- [x] Render a Leaflet + OSM map; the map is the landing page (no homepage/login)
+- [x] Render a Leaflet + OSM map, no login. (It sat at `/` until 2026-08-18;
+      it's at `/map` now, with a landing page at `/`.)
 - [x] Load crews from Supabase (public anon key) and show all as pins — 440 live
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
@@ -57,6 +58,20 @@ ARCHITECTURE.md for the decisions.
       behaviour, and don't reintroduce the ring.
 - [x] **Automated + filterable:** daily GitHub Actions refresh; appointment /
       pay grade / salary filters; pay, grade and appointment shown per posting.
+
+## Landing page + form voice — ✅ DONE (2026-08-18)
+- [x] **`/` is now a landing page**; the map moved to **`/map`**. Explains what
+      the site is, then three cards — find crews, see what's hiring, add a crew.
+      The cards come from one `SECTIONS` array in `components/Landing.js`, and
+      the grid is `auto-fit`, so a fourth section is one object and no CSS.
+- [x] **Retired "the map IS the landing page."** It was right while the map was
+      the only thing here; it stopped being right once a cold visitor had to
+      discover a hiring layer and a submission form from a screen of dots.
+      **No login was added** — that part of the old rule still stands.
+- [x] Quiet "About this map" link on the map panel so `/map` isn't a dead end.
+- [x] **Submission form copy rewritten** in the owner's voice — plainer, less
+      polished, no startup-marketing gloss. Same claims, fewer flourishes.
+- [x] Fixed `titleCaseState` capitalising "District Of Columbia".
 
 ## Public crew submissions (Phase 3 v1) — ⚠️ BUILT, NOT YET LIVE
 Our answer to nationwide coverage: let the people who work the missing crews add
@@ -112,7 +127,7 @@ Replaced the amber crew ring. A posting is now its own object on the map.
 ## Panel UI: layers refactor + fixes — ✅ DONE
 - [x] Reorganized the control panel into collapsible **layer sections**
       (reusable `LayerSection`): **Crews** = always-on base layer; **Hiring** =
-      toggleable overlay. Map stays the landing page (no tabs/pages). A future
+      toggleable overlay. No tabs/pages inside the map itself. A future
       layer (e.g. Housing) is a clean add. See ARCHITECTURE.md decision.
 - [x] Fixed multi-select dropdown layout: checkbox + label now inline on one
       left-aligned, fully-clickable row (out-specified the panel's stacked-label

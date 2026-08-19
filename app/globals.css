@@ -1065,3 +1065,161 @@ body {
   align-items: baseline;
   gap: 6px;
 }
+
+/* ---------------------------------------------------------------------------
+   LANDING PAGE ("/")
+
+   The map used to be the landing page. It moved to /map once there were three
+   things here — map, hiring, submissions — because a cold visitor looking at a
+   screen of dots can't discover the other two.
+
+   The card grid is `auto-fit`, so adding a fourth section is one object in the
+   SECTIONS array with no layout work.
+   --------------------------------------------------------------------------- */
+
+.landing {
+  min-height: 100vh;
+  background: #f7f7f6;
+  font-family: system-ui, sans-serif;
+  color: #111;
+  padding: 0 16px 56px;
+}
+
+.landing-hero {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 72px 0 40px;
+  text-align: center;
+}
+
+.landing-hero h1 {
+  margin: 0 0 12px;
+  font-size: 40px;
+  letter-spacing: -0.5px;
+}
+
+.landing-lede {
+  margin: 0 auto 10px;
+  max-width: 560px;
+  font-size: 18px;
+  line-height: 1.5;
+  color: #333;
+}
+
+.landing-sub {
+  margin: 0 0 26px;
+  font-size: 14px;
+  color: #777;
+}
+
+.landing-cta {
+  display: inline-block;
+  background: #b91c1c;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 12px 26px;
+  border-radius: 7px;
+}
+.landing-cta:hover { background: #991b1b; }
+
+/* auto-fit + minmax means the row count adapts to however many cards exist —
+   three today, more later, no CSS change either way. */
+.landing-grid {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.landing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  padding: 22px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid transparent;
+}
+.landing-card:hover {
+  border-color: #e5c4c4;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.13);
+}
+
+.landing-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #b91c1c;
+}
+
+.landing-card h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.landing-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #555;
+  flex: 1; /* pushes the CTA to the bottom so cards align regardless of length */
+}
+
+.landing-card-cta {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.landing-foot {
+  max-width: 720px;
+  margin: 48px auto 0;
+  padding-top: 26px;
+  border-top: 1px solid #e3e3e1;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #666;
+}
+.landing-foot h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #333;
+}
+.landing-foot p { margin: 0 0 10px; }
+
+.landing-foot-links {
+  display: flex;
+  gap: 18px;
+  margin-top: 18px;
+}
+.landing-foot-links a {
+  color: #b91c1c;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .landing-hero { padding: 44px 0 30px; }
+  .landing-hero h1 { font-size: 31px; }
+  .landing-lede { font-size: 16px; }
+}
+
+/* Quiet link back to the landing page from the map panel. Deliberately less
+   prominent than the submission link — it's an escape hatch, not a call to
+   action. */
+.filter-about-link {
+  display: block;
+  text-align: center;
+  font-size: 11.5px;
+  color: #888;
+  text-decoration: none;
+  padding: 2px;
+}
+.filter-about-link:hover { color: #b91c1c; }

@@ -120,15 +120,15 @@ export default function SubmitForm() {
 
   function validate() {
     const e = {};
-    if (form.crew_name.trim().length < 2) e.crew_name = "Please give the crew's name.";
-    if (form.crew_name.trim().length > 120) e.crew_name = "That's longer than 120 characters.";
-    if (!form.agency) e.agency = "Please pick an agency.";
-    if (!form.state) e.state = "Please pick a state.";
-    if (form.town.trim().length < 2) e.town = "Please give the town or nearest town.";
+    if (form.crew_name.trim().length < 2) e.crew_name = "What's the crew called?";
+    if (form.crew_name.trim().length > 120) e.crew_name = "That's too long — keep it under 120 characters.";
+    if (!form.agency) e.agency = "Pick an agency.";
+    if (!form.state) e.state = "Pick a state.";
+    if (form.town.trim().length < 2) e.town = "Which town, or the nearest one?";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.submitter_email.trim()))
-      e.submitter_email = "Please give an email we can reach you at.";
+      e.submitter_email = "We need an email that works.";
     if (form.website && form.website.trim().length > 300) e.website = "That URL is too long.";
-    if (form.notes.length > 1000) e.notes = "Please keep notes under 1000 characters.";
+    if (form.notes.length > 1000) e.notes = "Keep this under 1000 characters.";
     return e;
   }
 
@@ -144,11 +144,11 @@ export default function SubmitForm() {
       return;
     }
     if ((Date.now() - openedAt.current) / 1000 < MIN_SECONDS_ON_FORM) {
-      setErrorMsg("That was quick — take another look and try again.");
+      setErrorMsg("That was quick. Have another look and try again.");
       return;
     }
     if (Date.now() - lastSentAt.current < RESUBMIT_COOLDOWN_MS) {
-      setErrorMsg("You just sent one. Give it a moment before sending another.");
+      setErrorMsg("You just sent one, give it a second.");
       return;
     }
 
@@ -183,7 +183,7 @@ export default function SubmitForm() {
       setErrorMsg(
         error.message?.includes("Too many") || error.message?.includes("submitted several")
           ? error.message
-          : "Something went wrong sending that. Please try again in a moment."
+          : "That didn't send. Try again in a minute."
       );
       return;
     }
@@ -196,14 +196,13 @@ export default function SubmitForm() {
     return (
       <div className="submit-page">
         <div className="submit-done">
-          <h1>Thanks — that's been sent.</h1>
+          <h1>Got it, thanks.</h1>
           <p>
-            Your crew is in the review queue. Someone checks these by hand, so it
-            won't appear on the map straight away. If anything needs clarifying
-            we'll email you at the address you gave.
+            It's in the queue. Someone looks at these by hand so it won't show up
+            on the map right away. If something needs checking we'll email you.
           </p>
           <p className="submit-actions">
-            <Link href="/">← Back to the map</Link>
+            <Link href="/map">← Back to the map</Link>
             <button
               type="button"
               className="submit-another"
@@ -214,7 +213,7 @@ export default function SubmitForm() {
                 openedAt.current = Date.now();
               }}
             >
-              Add another crew
+              Add another one
             </button>
           </p>
         </div>
@@ -226,15 +225,14 @@ export default function SubmitForm() {
     <div className="submit-page">
       <form className="submit-form" onSubmit={handleSubmit} noValidate>
         <p className="submit-back">
-          <Link href="/">← Back to the map</Link>
+          <Link href="/map">← Back to the map</Link>
         </p>
 
         <h1>Add a crew</h1>
         <p className="submit-intro">
-          Missing a crew? Add it here. The map started from a Forest Service
-          dataset that mostly covers the West, so there are real gaps — the
-          people who work these crews know them better than any list we could
-          find. Every submission is reviewed by a person before it appears.
+          This started from a Forest Service list that's mostly western, so
+          there are gaps. If you know a crew that isn't on the map, put it here.
+          Someone reads these before anything goes up.
         </p>
 
         <label>
@@ -293,25 +291,25 @@ export default function SubmitForm() {
             specific base — saying so here sets the same expectation the map
             itself makes about job postings. */}
         <div className={`submit-geo submit-geo--${geo.state}`}>
-          {geo.state === "looking" && "Looking up that town…"}
+          {geo.state === "looking" && "Looking that up…"}
           {geo.state === "found" && (
             <>
               Found: <strong>{geo.label.split(",").slice(0, 3).join(", ")}</strong>
               <span className="submit-geo-note">
-                The pin sits at the town centre, not the exact base.
+                The pin goes in the middle of town, not at the actual base.
               </span>
             </>
           )}
           {geo.state === "missing" && (
             <>
-              Couldn't place that town automatically — that's fine, send it
-              anyway and we'll sort the location out during review.
+              Couldn't find that town automatically. Send it anyway, we'll
+              sort the location out.
             </>
           )}
         </div>
 
         <fieldset className="submit-types">
-          <legend>Crew type <span className="opt">optional — pick any that fit</span></legend>
+          <legend>Crew type <span className="opt">optional, pick any that fit</span></legend>
           <div className="submit-type-grid">
             {SUBMIT_CREW_TYPES.map((t) => (
               <label key={t} className="submit-type">
@@ -339,13 +337,13 @@ export default function SubmitForm() {
         </label>
 
         <label>
-          <span className="label-line">Anything else <span className="opt">optional</span></span>
+          <span className="label-line">Anything else worth knowing <span className="opt">optional</span></span>
           <textarea
             rows={3}
             value={form.notes}
             maxLength={1000}
             onChange={(e) => set("notes", e.target.value)}
-            placeholder="Housing, hiring contact, anything that would help someone considering this crew."
+            placeholder="Housing, who to talk to about hiring, anything useful to someone thinking about this crew."
           />
           {fieldErrors.notes && <span className="err">{fieldErrors.notes}</span>}
         </label>
@@ -360,8 +358,8 @@ export default function SubmitForm() {
             placeholder="you@example.com"
           />
           <span className="submit-hint">
-            Only used to follow up on this submission if something needs
-            checking. It is never shown on the map or shared.
+            So we can get hold of you if something about the crew needs
+            checking. It's not shown on the map and doesn't go anywhere else.
           </span>
           {fieldErrors.submitter_email && (
             <span className="err">{fieldErrors.submitter_email}</span>
@@ -387,12 +385,12 @@ export default function SubmitForm() {
         {errorMsg && <div className="submit-error">{errorMsg}</div>}
 
         <button type="submit" className="submit-button" disabled={status === "sending"}>
-          {status === "sending" ? "Sending…" : "Submit crew for review"}
+          {status === "sending" ? "Sending…" : "Send this in"}
         </button>
 
         <p className="submit-fineprint">
-          Submissions are reviewed by hand before anything appears on the map.
-          Please only add crews you have direct knowledge of.
+          Everything gets looked at before it goes on the map. Please only add
+          crews you actually know about.
         </p>
       </form>
     </div>

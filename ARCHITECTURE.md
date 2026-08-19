@@ -16,12 +16,21 @@ Sourcing the missing regions is tracked work, not a "maybe someday" — see
 `TODO_NOW.md`. Don't write code, copy, or UI that treats Western-only as the
 intended scope.
 
-**The intended experience — Phase 1 must deliver this alone:** a user opens the
-site URL and is **immediately** shown an interactive US map. No homepage, no
-splash screen, no login/signup wall. All crews appear as **pins**, and the
-**filter controls (state, crew type, housing, region)** are visible and usable
-on first load. Clicking a pin shows that crew's details. **The map IS the
-landing page.**
+**The intended experience:** all crews appear as **pins**, the **filter
+controls** are visible and usable on first load, and clicking a pin shows that
+crew's details. Viewing never requires an account.
+
+**On "the map IS the landing page" — this rule was retired on 2026-08-18.**
+It held for most of the project's life and was right while the map was the only
+thing here: no splash, no marketing page, straight to the pins. It stopped being
+right once there were three things — the map, a hiring layer, and a public
+submission form. Someone arriving cold at 829 dots has no way to discover the
+other two.
+
+So: **`/` is a landing page that explains the place, and `/map` is the map**,
+one click away and bookmarkable, so regulars never see the landing page twice.
+What has NOT changed: no login, no signup wall, nothing gated. Viewing is still
+free and anonymous — the rule that actually mattered.
 
 Viewing and searching are **always login-free.** (Only future editing would ever
 need an account — see Phase 3.)
@@ -64,13 +73,15 @@ submissions ever get busy.
 
 ## Key decisions and why
 
-- **Map is the landing page.** No homepage or auth gate in Phase 1. The product
-  is the map + filters on first load. This is the whole point, not a later polish.
+- **No auth gate, ever, for viewing.** This is the part of the old
+  "map is the landing page" rule that still stands and is non-negotiable. The
+  map itself lives at `/map`; `/` explains what the site is (see above). Neither
+  requires an account.
 - **Control panel is organized as LAYERS, not tabs.** As we add data beyond the
   base crews (jobs now; maybe housing later), the panel groups controls into
   stacked, collapsible **layer sections** rather than tabs or separate pages —
-  this keeps everything spatially connected on the single map (the map stays the
-  landing page — non-negotiable). Each layer owns its controls and its honest
+  this keeps everything spatially connected on the single map (no tabs, no
+  sub-pages inside the map itself). Each layer owns its controls and its honest
   data-source/freshness label. **Crews** is the always-on base layer; other
   layers (e.g. **Hiring**) are toggleable overlays. A reusable `LayerSection`
   component means a new layer is a clean addition, not a panel rewrite. Layer
@@ -355,4 +366,4 @@ submissions ever get busy.
    (immediate tasks) and `TODO_LATER.md` (backlog).
 2. Phase 0 is done (440/440 geocoded). **Next concrete action: start Phase 1** —
    create the Supabase project + table, import `crews_with_coords.json`, scaffold
-   the Next.js app, and render a Leaflet map of all pins as the landing page.
+   the Next.js app, and render a Leaflet map of all pins (now at `/map`).

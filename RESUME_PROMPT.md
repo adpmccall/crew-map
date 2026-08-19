@@ -24,7 +24,10 @@ load it before doing anything.
 
 3. Here is where we are:
    - The app is LIVE at https://crew-map-five.vercel.app (Next.js on Vercel,
-     Supabase, Leaflet/OSM). The map IS the landing page (no homepage/login).
+     Supabase, Leaflet/OSM). "/" is a LANDING PAGE explaining the site; the
+     MAP is at "/map". The old "map IS the landing page" rule was retired
+     2026-08-18 — don't restore it. No login anywhere, which is the part that
+     still matters.
    - Phase 0 (data) and Phase 1 (map + filters + popup + deploy + mobile) are
      FULLY DONE. Mobile was verified in a browser at a true 390px. There is no
      remaining CORE work — everything below is ICING or a decision to make.
@@ -171,7 +174,7 @@ load it before doing anything.
      had to be rotated).
    - Stay $0: Next.js/Vercel + Supabase + Leaflet/OpenStreetMap (+ free
      USAJOBS/Nominatim at build time only). No paid keys.
-   - Map IS the landing page: no homepage, splash, or login to view.
+   - No login gate to view anything. ('/' = landing page, '/map' = the map.)
    - RLS stays public-read only (no write policies until Phase 3).
    - Environment variables don't persist between Terminal sessions — re-export
      the secret key if running refresh_jobs.py / import_to_supabase.py /

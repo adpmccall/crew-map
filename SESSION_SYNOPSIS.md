@@ -9,10 +9,15 @@ a fresh Claude session) can get oriented fast. For the authoritative plan see
 
 A **free ($0)** interactive web map for wildland firefighters, covering **US
 fire crews nationwide — all regions, all 50 states.** A user opens the site URL
-and is **immediately** shown a queryable US map of those crews — **no homepage, no splash, no login to view.** Crews show as pins;
-filter controls (state, crew type, housing, region) are visible on first load
-and narrow the pins; clicking a pin shows that crew's details. **The map IS the
-landing page.** Viewing/searching is always login-free.
+and gets a short landing page explaining what this is, with the map one click
+away at `/map`. Crews show as pins; filter controls (state, agency, crew type,
+region, housing) are visible on first load and narrow the pins; clicking a pin
+shows that crew's details. **Viewing/searching is always login-free** — that
+part never changed.
+
+**Note:** "the map IS the landing page" was a hard rule until 2026-08-18. It was
+retired once the site had three things (map, hiring, submissions) that a cold
+visitor couldn't discover from a screen of dots. No login was ever added.
 
 ## The stack (all free, no paid keys)
 
@@ -38,9 +43,9 @@ landing page.** Viewing/searching is always login-free.
   imported via `import_to_supabase.py`.
 
 ### Phase 1 — The product ✅ COMPLETE
-- Next.js App Router app (plain JS, Next 14). **Map is the landing page** — no
-  homepage/splash/login. Leaflet + OSM; `CircleMarker` pins to avoid bundler
-  icon issues.
+- Next.js App Router app (plain JS, Next 14). The map lives at **`/map`** (it
+  was at `/` until the landing page arrived, 2026-08-18); no login either way.
+  Leaflet + OSM; `CircleMarker` pins to avoid bundler icon issues.
 - All crews load from Supabase via the **public key only**. (Was 440 when built;
   the table is **829** since the Atlas merge — the app reads the table, so the
   extra pins show automatically.)
@@ -130,7 +135,7 @@ as an amber ring around a nearby crew. **That ring is gone entirely.**
 ### Control panel: layers refactor + UI fixes ✅
 - Panel reorganized into collapsible **layer sections** (reusable
   `LayerSection`): **Crews** = always-on base layer; **Hiring** = toggleable
-  overlay. No tabs/pages — map stays the landing page. Built so a future
+  overlay. No tabs/pages inside the map itself. Built so a future
   **Housing** layer is a clean addition.
 - Fixed the multi-select dropdown layout (checkbox + label inline on one
   left-aligned, fully-clickable row; regular weight; tighter spacing).
@@ -357,6 +362,7 @@ backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
 - **RLS stays public-read only** until Phase 3.
 - **$0 constraint:** Vercel + Supabase + Leaflet/OSM (+ free USAJOBS/Nominatim at
   build time). No paid keys.
-- **Map is the landing page:** no homepage, splash, or login gate to view.
+- **No login gate to view**, ever. (The map moved from `/` to `/map` on
+  2026-08-18 when a landing page was added; nothing became gated.)
 - Environment variables don't persist between Terminal sessions — re-export the
   secret key when running local scripts.

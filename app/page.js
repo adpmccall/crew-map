@@ -1,18 +1,22 @@
-"use client";
+// The landing page ("/").
+//
+// The map moved to "/map" when this arrived. See components/Landing.js for why
+// the older "the map IS the landing page" rule was retired: there are three
+// things here now, and a cold visitor looking at 829 dots can't discover the
+// other two.
+//
+// Plain server component — no Leaflet, so none of the ssr:false handling the
+// map needs.
 
-// This is the landing page (the "/" route). The map IS the landing page:
-// visiting the site shows it immediately — no homepage, no splash, no login.
+import Landing from "../components/Landing";
 
-import dynamic from "next/dynamic";
-
-// Leaflet uses the browser's `window` object, which does not exist while
-// Next.js renders pages on the server. `ssr: false` tells Next.js to load the
-// map ONLY in the browser, which avoids "window is not defined" errors.
-const CrewMap = dynamic(() => import("../components/CrewMap"), {
-  ssr: false,
-  loading: () => <p style={{ padding: 16 }}>Loading map…</p>,
-});
+export const metadata = {
+  title: "Crew Map — US wildland fire crews",
+  description:
+    "A map of wildland fire crews in the US: where they are, who they work for, " +
+    "and what's hiring near them. Free, no account needed.",
+};
 
 export default function HomePage() {
-  return <CrewMap />;
+  return <Landing />;
 }
