@@ -282,6 +282,18 @@ from crew_submissions
 where status = 'pending'
 order by submitted_at desc;
 
+-- OWNER SEMANTICS, STATED OUTRIGHT — do not remove.
+-- `crew_submissions` has RLS on with no SELECT policy (deliberate: it holds
+-- emails). A view marked security_invoker=true would evaluate that RLS as
+-- whoever queries it, find no policy, and silently return ZERO ROWS while the
+-- raw table still read fine — which is exactly what happened on the first real
+-- review. Pinning it off makes the behaviour deterministic instead of
+-- depending on the server's default.
+--
+-- Bypassing RLS here is only acceptable because of the revoke immediately
+-- below: nothing but the service role can read this view.
+alter view pending_submissions set (security_invoker = off);
+
 revoke all on pending_submissions from public, anon, authenticated;
 grant select on pending_submissions to service_role;
 
