@@ -33,18 +33,34 @@ need an account — see Phase 3.)
 | Frontend       | **Next.js** (React) on **Vercel**      | Deploys to Vercel with zero config; free tier |
 | Database + API | **Supabase** (Postgres + auto REST API)| Free Postgres; queryable API without writing a backend |
 | Map            | **Leaflet** + **OpenStreetMap** tiles  | No API key, no signup, free |
-| Geocoding      | **OpenStreetMap Nominatim** (build-time only) | Free, no key, town-level; same OSM project as our tiles |
+| Geocoding      | **OpenStreetMap Nominatim** — build-time, **plus one runtime call** (see below) | Free, no key, town-level; same OSM project as our tiles |
 | Jobs data      | **USAJOBS REST API** (build-time only)        | Official US federal jobs API; free with a self-registered key; pulled by a **local refresh script**, never by the app |
 
 **Hard constraints:** stay at **$0** (no paid keys, no credit-card services — so
 no Mapbox/Google Maps); keep the service count small (Vercel + Supabase + OSM is
 the whole list); don't add a fourth service without raising it first.
 
-**Note on USAJOBS:** it does **not** add a fourth runtime service. Like Nominatim,
-it's a **build-time data source** — a local script (`refresh_jobs.py`) queries it
-on our machine and writes rows into Supabase. The live app still talks only to
-Supabase (data) + OSM (tiles). The USAJOBS key is free (no billing), so we stay
-at $0.
+**Note on USAJOBS:** it does **not** add a fourth runtime service. It's a
+**build-time data source** — a local script (`refresh_jobs.py`) queries it on
+our machine and writes rows into Supabase. The USAJOBS key is free (no
+billing), so we stay at $0.
+
+**Note on Nominatim — this changed on 2026-08-15.** It used to be strictly
+build-time, and this file used to say the running app talked only to Supabase
+and OSM. That is no longer true: the public submission form geocodes the town
+the submitter types, live in the browser, so a crew is placed at the same
+town-centre precision as every other pin without a separate approval step.
+
+It is **not a fourth service** — Nominatim is the same OpenStreetMap project
+that already serves our tiles, it needs no key, and it stays at $0. But the
+claim "the live app only talks to Supabase and OSM tiles" is now wrong, and the
+honest version is: **Supabase + OSM tiles on every page, plus Nominatim on the
+submission form only.** The map itself still calls nothing else.
+
+One caveat that comes with it: a browser can't set the descriptive User-Agent
+Nominatim's usage policy asks for. Volume is a handful of lookups per
+submission, so this is well inside their limits, but it's worth knowing if
+submissions ever get busy.
 
 ## Key decisions and why
 
@@ -67,8 +83,10 @@ at $0.
   `town` + `state`; the Census geocoder only resolves full street addresses and
   returned 0 matches for every town. Nominatim does town-level lookups, is free
   and key-free, and is the same OSM project that serves our map tiles — so it
-  adds no new service. Geocoding runs **once at build time** (`geocode.py`), not
-  in the live app.
+  adds no new service. Bulk geocoding runs **at build time** (`geocode.py`,
+  `refresh_jobs.py`). **Since 2026-08-15 there is also one runtime call**: the
+  public submission form geocodes the town as it's typed. See the Nominatim
+  note under the stack table.
 - **Display before edit.** Ship a working read-only map first; defer all
   add/edit/account features (Phase 3).
 - **Crew-type filter matches by "contains," case-insensitively.** `resource`
@@ -95,8 +113,9 @@ at $0.
 - **The jobs refresh runs on GitHub Actions, daily.** `.github/workflows/
   refresh-jobs.yml` runs `refresh_jobs.py` at 09:17 UTC (odd minute on purpose;
   GitHub's scheduler is busiest on the hour), plus a manual trigger. Free on a
-  public repo, and it adds **no runtime service** — the live app still talks
-  only to Supabase and OSM, exactly as before.
+  public repo, and it adds **no runtime service** — the refresh happens on
+  GitHub's machines, not in anyone's browser. (Separately, the submission form
+  does add one runtime Nominatim call — see the Nominatim note above.)
   - **Credentials are encrypted Actions secrets**, and the Supabase one is a
     **separate CI-only `sb_secret_` key**, deliberately not the maintainer's
     local key, so it can be revoked on its own. The workflow token is
@@ -266,6 +285,17 @@ at $0.
   accepts the submission with NULL coordinates and flags it in the review view.
   Note this is the first time the *live app* calls Nominatim; it was previously
   build-time only.
+- **Submitted crews have no `region`, on purpose.** `region` means a Forest
+  Service region (R1-R10). Most submitted crews won't have one — a county or
+  tribal crew has no FS region — and for a USFS crew we'd be guessing from the
+  town. The form doesn't ask, so nothing is asserted. Same principle as the 17
+  crews at `agency='unknown'` and the 304 Atlas rows with NULL region: NULL is
+  the honest answer. The consequence — a submitted crew won't appear under a
+  Forest Service region filter — is correct, not a bug.
+- **Known limitations, accepted rather than fixed:** the hourly rate limit is
+  also a DoS vector, the sequence grant is broader than needed, and reviewed
+  submissions are never cleaned up. All three are written up in `TODO_LATER.md`
+  with the reasoning and the real fix for each.
 - **Discoverability is env-gated:** the map only shows the "Add a missing crew"
   link when `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`, so the feature can be
   reviewed on a live deploy before anyone can find it, and switched off from

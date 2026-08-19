@@ -204,6 +204,21 @@ begin
       submission_id, s.approved_crew_id;
   end if;
 
+  -- NOTE — `region` and `forest` are deliberately NOT set. This is correct
+  -- behaviour, not an omission to "fix" later.
+  --
+  -- `region` means a Forest Service region (R1-R10). Most submitted crews won't
+  -- have one at all — a county fire department or a tribal crew has no FS
+  -- region — and even for a USFS crew we'd only be guessing from the town. The
+  -- form doesn't ask, because a submitter shouldn't need to know our internal
+  -- taxonomy, and inferring it would put a value in the database that nobody
+  -- actually asserted.
+  --
+  -- Same principle as the 17 crews at agency='unknown' and the 304 Atlas rows
+  -- with a NULL region: NULL is the honest answer when we don't know. The
+  -- consequence is that a submitted crew won't show under any Forest Service
+  -- region filter — which is right, since we can't claim it belongs to one. A
+  -- reviewer who does know the region can set it by hand after approving.
   insert into crews (crew_name, agency, state, town, latitude, longitude,
                      resource, website, notes, source)
   values (s.crew_name, s.agency, s.state, s.town, s.latitude, s.longitude,

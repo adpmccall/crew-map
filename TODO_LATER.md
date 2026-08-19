@@ -17,6 +17,44 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
 - [ ] Revisit the ">8 duty-location" national-announcement noise filter if it
       ever drops real field postings.
 
+## Crew submissions — known limitations, ACCEPTED not forgotten
+Three trade-offs made knowingly when public submissions shipped (2026-08-15).
+None is a bug; all are written down so a future session doesn't "discover" them
+and assume they were oversights. Revisit if submissions get real traffic.
+
+- [ ] **The rate limit is also a denial-of-service vector.** The `BEFORE INSERT`
+      trigger in `crew_submissions_schema.sql` caps **60 submissions/hour
+      globally**. Hitting that cap blocks *legitimate* submissions for the rest
+      of the hour, and an attacker can reach it cheaply.
+      **Why accepted:** there is no public audience yet, and PostgREST doesn't
+      expose the client IP to policies, so per-IP limiting — the thing that
+      would actually fix this — isn't available. Bounded bloat beat unbounded.
+      **The real fix if it ever bites:** Cloudflare Turnstile (free). Note the
+      cost honestly — it needs server-side verification, so it means adding the
+      project's **first API route** and a **fourth service dependency**, both of
+      which the architecture has deliberately avoided. Don't reach for it until
+      the problem is real.
+
+- [ ] **The sequence grant is broader than this table needs.**
+      `grant usage, select on all sequences in schema public to anon,
+      authenticated` covers *every* sequence in `public`, not just
+      `crew_submissions`'. It's the standard Supabase incantation required for
+      anon INSERT to draw an id.
+      **Why low risk:** sequences expose a counter value, not row data. The
+      no-read guarantee on `crew_submissions` is unaffected — it rests on
+      having no SELECT policy plus an explicit `revoke select`.
+      **Worth doing eventually:** scope it to the single sequence
+      (`crew_submissions_id_seq`). Tightening, not urgent.
+
+- [ ] **No retention policy on reviewed submissions.** Approved and rejected
+      rows stay in `crew_submissions` forever. Approved ones double as an audit
+      trail (`approved_crew_id` links to the crew created), which is useful.
+      **Why fine for now:** expected volume is a handful.
+      **If it gets busy:** add a cleanup — e.g. delete rejected rows older than
+      90 days, keep approved ones as provenance. Consider whether submitter
+      emails should be purged on a schedule regardless of volume, since they're
+      personal data we only need while a submission is under review.
+
 ## Use USAJOBS' own coordinates instead of geocoding towns ourselves
 - [ ] **`refresh_jobs.py` geocodes `"{town}, {state}, USA"` through Nominatim —
       but USAJOBS already hands us `Latitude`/`Longitude` on every

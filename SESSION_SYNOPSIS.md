@@ -20,10 +20,13 @@ landing page.** Viewing/searching is always login-free.
   **Live at https://crew-map-five.vercel.app.**
 - **Database + API:** **Supabase** (hosted Postgres + auto REST API). Free tier.
 - **Map:** **Leaflet** + **OpenStreetMap** tiles (no API key, no signup).
-- **Geocoding:** **OpenStreetMap Nominatim**, run once locally at build time.
+- **Geocoding:** **OpenStreetMap Nominatim** — bulk runs happen locally at build
+  time, **plus one runtime call**: the public submission form geocodes the town
+  as it's typed (since 2026-08-15). Not a new service — same OSM project as the
+  tiles — but the app is no longer strictly Supabase + tiles at runtime.
 - **Jobs data:** **USAJOBS REST API** — a *build-time* source pulled by a local
   script (`refresh_jobs.py`) into Supabase; the live app never calls it. Free
-  key. Does NOT add a runtime service (app still talks only to Supabase + OSM).
+  key. Does NOT add a runtime service — the pull happens on GitHub's machines.
 
 ## What's DONE
 
