@@ -206,26 +206,34 @@ plus an explicit table for forests we hold no curated crew for.
       popups). All 58 cleaned and verified; 3 were curated rows enriched by the
       Atlas, so the write is guarded by id, not by source.
 
-## Finish nationwide coverage — source real R8/R9/R10 crew data — ⬜ OPEN
-**This project covers all US fire crews nationwide.** The data doesn't match that
-yet, and closing the gap is the next real work — it's a data-sourcing task, not a
-code task.
+## Nationwide coverage — ⬜ OPEN, strategy settled 2026-08-15
+**This project covers all US fire crews nationwide.** The data doesn't match
+that yet. Where we are: the original curated file covered **R1–R6 only**, and
+the Handcrew Atlas added our **first ~14 crews in R8/R9/R10** — whatever the
+Atlas happened to include, not deliberate coverage of those regions.
 
-Where we actually are: the original curated source file covered **R1–R6 only**,
-and the Handcrew Atlas merge added our **first ~14 crews in R8/R9/R10**. That's a
-real start on the Eastern, Southern and Alaska regions, but it's whatever the
-Atlas happened to include — not deliberate coverage of those regions.
+**HOW WE'RE CLOSING IT: public submissions, not manual sourcing.**
+This section used to call for going out and finding comprehensive R8/R9/R10
+crew data ourselves. That plan was **dropped on 2026-08-15** in favour of
+letting the people who work those crews add them — see "Public crew
+submissions" above. Don't restart the hand-sourcing effort thinking it's still
+the plan; it was replaced, not forgotten.
 
-- [ ] **Source comprehensive Eastern (R8), Southern/Eastern (R9) and Alaska (R10)
-      crew data.** Go after these regions on purpose rather than accepting the
-      Atlas's incidental ~14. Same bar as the curated 440: real crew locations
-      with enough detail to geocode and to fill `forest` / `district` / `town` /
-      `state` / `resource` where available.
-- [ ] **Check R1–R6 for gaps too.** The 440 are Forest Service crews; nationwide
-      also means not silently missing units within regions we already show.
-- [ ] **Load via the existing path** — the `source` column already accepts new
-      provenance values, and `import_to_supabase.py` + the region backfill
-      scripts exist. Tag new rows honestly; don't overwrite curated values.
+Why: the missing crews are mostly non-USFS (state, county, tribal, local), and
+no single public dataset covers them the way the Forest Service list covered
+R1–R6. Someone who works a crew knows it better than any list we could go find.
+
+The trade-off, stated plainly: this fills in **slowly and unevenly**, and only
+where someone bothers to submit. That's accepted. It also means coverage now
+depends on the submission form being findable and working — so that feature is
+load-bearing for the project's core goal, not a nice-to-have.
+
+- [ ] **Watch whether submissions actually arrive** once the form is live. If
+      months pass with none, the strategy needs revisiting — that's the signal,
+      not a fixed date.
+- [ ] **Consider seeding it** if uptake is slow: approaching a few crews
+      directly beats a general appeal, and each approved submission makes the
+      map more worth submitting to.
 - [ ] **Until coverage lands, don't overstate it in the UI.** Thin regions should
       read as "we're still building this out," not as "no crews here." (The
       legend is already gated to regions that actually have crews.)

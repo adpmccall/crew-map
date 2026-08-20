@@ -124,14 +124,20 @@ load it before doing anything.
 
 4. Open items (confirm with me before starting anything):
 
-   a) FINISH NATIONWIDE COVERAGE (the open work item in TODO_NOW.md). THIS
-      PROJECT IS NATIONWIDE — all US fire crews, every region. Nothing about
-      the scope is Western-only; the DATA is just incomplete. The original
-      curated file covered R1-R6 only, and the Atlas merge added our first ~14
-      R8/R9/R10 crews — a real start on Eastern/Southern/Alaska, not a
-      deliberate stopping point. Next step is to source comprehensive R8/R9/R10
-      crew data (a data-sourcing task, not a code task), and to check R1-R6 for
-      gaps too. Until that lands, thin regions should read in the UI as "still
+   a) NATIONWIDE COVERAGE — the gap is real, but the PLAN IS SETTLED.
+      THIS PROJECT IS NATIONWIDE — all US fire crews, every region. Nothing
+      about the scope is Western-only; the DATA is just incomplete. The
+      original curated file covered R1-R6 only, and the Atlas merge added our
+      first ~14 R8/R9/R10 crews.
+      **We are closing the gap with PUBLIC SUBMISSIONS, not by hand-sourcing
+      datasets.** That decision was made 2026-08-15. An earlier version of this
+      file told you to go find comprehensive R8/R9/R10 data — DO NOT restart
+      that; it was replaced, not forgotten. The missing crews are mostly
+      non-USFS (state, county, tribal, local) and no single public dataset
+      covers them.
+      Consequence: the submission form is load-bearing for the project's core
+      goal, not a nice-to-have. Coverage fills in slowly and unevenly, which is
+      accepted. Until it lands, thin regions should read in the UI as "still
       building this out," never as "no crews here."
 
    b) FIX THE DEAD ATLAS PHOTO URLS. All 114 stored photo_url values fail to
