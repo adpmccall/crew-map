@@ -197,7 +197,11 @@ submissions ever get busy.
   homepage/login) with every crew as a pin from Supabase; the four filters are
   present on load and narrow the pins; clicking a pin shows crew details;
   mobile-usable.
-- **Deployed:** live at **https://crew-map-five.vercel.app**, served from
+- **Deployed:** live at **https://usfiremaps.com** (custom domain added
+  2026-08-19; registered and DNS-hosted at Cloudflare, records set to DNS-only
+  so Cloudflare's proxy stays out of the path and Vercel's own certificate
+  works). **`crew-map-five.vercel.app` still serves the site** and is not
+  redirected — old bookmarks keep working on purpose. Served from
   Supabase via the public `sb_publishable_` key (legacy keys disabled).
 - **Definition of done (test the whole flow, no intermediate pages):**
   1. ✅ Load the site URL → an interactive US map appears immediately (no
@@ -322,7 +326,7 @@ submissions ever get busy.
 
 - **Phase 0: ✅ done.** `crews_with_coords.json` written, **440/440 geocoded**;
   `still_missing.csv` empty.
-- **Phase 1: ✅ deployed & live** at **https://crew-map-five.vercel.app**. Next.js
+- **Phase 1: ✅ deployed & live** at **https://usfiremaps.com**. Next.js
   app on Vercel, Supabase `crews` table (440 rows) read via the public
   `sb_publishable_` key (legacy keys disabled), Leaflet/OSM map as the landing
   page, all four filters, and the detail popup all work. Control panel is

@@ -31,7 +31,7 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
       legend collapses/expands, tap targets are finger-sized, and there is no
       horizontal overflow. Popup width confirmed at a true 390px (iPhone) after
       the `min-width` fix below. **Phase 1 is now fully done.**
-- [x] Deploy to Vercel (live at https://crew-map-five.vercel.app)
+- [x] Deploy to Vercel (live at https://usfiremaps.com)
       (note: popup shows the user-requested fields; `notes` was not included —
       add later if wanted)
 
@@ -136,7 +136,7 @@ Replaced the amber crew ring. A posting is now its own object on the map.
       still uses the uppercase value.
 
 ## Deploy + key migration — ✅ DONE
-- [x] Deployed to Vercel — **live at https://crew-map-five.vercel.app**
+- [x] Deployed to Vercel — **live at https://usfiremaps.com**
 - [x] Key migration complete: app runs on the new `sb_publishable_` key
       (`NEXT_PUBLIC_SUPABASE_ANON_KEY`); the old legacy keys are disabled.
 

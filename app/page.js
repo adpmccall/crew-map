@@ -18,6 +18,11 @@ export const metadata = {
   description:
     "A map of wildland fire crews in the US: where they are, who they work for, " +
     "and what's hiring near them.",
+  // Pin the canonical URL to the bare domain. www.usfiremaps.com serves the
+  // same site via a redirect, so without this a search engine could index both
+  // and split them. `metadataBase` in layout.js makes this relative path
+  // absolute.
+  alternates: { canonical: "/" },
 };
 
 export default function HomePage() {

@@ -22,7 +22,7 @@ visitor couldn't discover from a screen of dots. No login was ever added.
 ## The stack (all free, no paid keys)
 
 - **Frontend:** Next.js (React), deployed on **Vercel** (free tier).
-  **Live at https://crew-map-five.vercel.app.**
+  **Live at https://usfiremaps.com.**
 - **Database + API:** **Supabase** (hosted Postgres + auto REST API). Free tier.
 - **Map:** **Leaflet** + **OpenStreetMap** tiles (no API key, no signup).
 - **Geocoding:** **OpenStreetMap Nominatim** — bulk runs happen locally at build

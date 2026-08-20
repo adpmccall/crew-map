@@ -23,7 +23,7 @@ load it before doing anything.
    Do NOT change any files or run anything yet — confirm with me first.
 
 3. Here is where we are:
-   - The app is LIVE at https://crew-map-five.vercel.app (Next.js on Vercel,
+   - The app is LIVE at https://usfiremaps.com (Next.js on Vercel,
      Supabase, Leaflet/OSM). "/" is a LANDING PAGE explaining the site; the
      MAP is at "/map". The old "map IS the landing page" rule was retired
      2026-08-18 — don't restore it. No login anywhere, which is the part that
