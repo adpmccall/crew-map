@@ -73,7 +73,7 @@ ARCHITECTURE.md for the decisions.
       polished, no startup-marketing gloss. Same claims, fewer flourishes.
 - [x] Fixed `titleCaseState` capitalising "District Of Columbia".
 
-## Public crew submissions (Phase 3 v1) — ⚠️ BUILT, NOT YET LIVE
+## Public crew submissions (Phase 3 v1) — ✅ LIVE (2026-08-19)
 Our answer to nationwide coverage: let the people who work the missing crews add
 them, instead of hand-sourcing data. Nothing goes live without human approval.
 - [x] `crew_submissions_schema.sql` — own table (NOT `crews`), anon INSERT only
@@ -85,11 +85,13 @@ them, instead of hand-sourcing data. Nothing goes live without human approval.
       state (geocoded live via Nominatim), crew types, optional website/notes,
       required email. Honeypot + 4-second minimum + 30s cooldown.
 - [x] Map link gated behind `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`.
-- [ ] **STEP 1 (owner):** run `crew_submissions_schema.sql` in the Supabase SQL
-      editor. Until this runs the form loads but submitting fails.
-- [ ] **STEP 2 (owner):** after reviewing, set
-      `NEXT_PUBLIC_SUBMISSIONS_ENABLED=true` in Vercel and redeploy to make the
-      link visible. Leaving it unset keeps the feature invisible to the public.
+- [x] **Schema applied** in Supabase; a test submission was written, read back
+      as `pending`, and `approve_submission()` exercised in a BEGIN/ROLLBACK.
+- [x] **`NEXT_PUBLIC_SUBMISSIONS_ENABLED=true`** set in Vercel and redeployed
+      (2026-08-19). Both entry points verified on the live domain.
+      **Gotcha for next time:** it's a `NEXT_PUBLIC_` var, compiled in at build
+      time. Setting it without a redeploy changes nothing — and it has to be
+      the exact string `true`.
 - **Reviewing:** `select * from pending_submissions;` then
   `select approve_submission(id);` or `select reject_submission(id, 'why');`
 

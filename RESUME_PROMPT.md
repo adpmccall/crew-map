@@ -23,7 +23,13 @@ load it before doing anything.
    Do NOT change any files or run anything yet — confirm with me first.
 
 3. Here is where we are:
-   - The app is LIVE at https://usfiremaps.com (Next.js on Vercel,
+   - The app is LIVE at https://usfiremaps.com (custom domain since
+     2026-08-19; registered + DNS at Cloudflare, both records CNAME'd to
+     Vercel and set to DNS-ONLY on purpose — proxying them breaks Vercel's
+     cert and causes a redirect loop. www.usfiremaps.com 308-redirects to the
+     bare domain, which is canonical. crew-map-five.vercel.app STILL WORKS and
+     is deliberately not redirected, so old bookmarks survive — don't "tidy"
+     that away.) (Next.js on Vercel,
      Supabase, Leaflet/OSM). "/" is a LANDING PAGE explaining the site; the
      MAP is at "/map". The old "map IS the landing page" rule was retired
      2026-08-18 — don't restore it. No login anywhere, which is the part that
@@ -112,15 +118,25 @@ load it before doing anything.
    - The control panel was refactored into collapsible LAYERS (Crews = base,
      Hiring = toggleable overlay) — built so a Housing layer is a clean add.
 
-   - PUBLIC CREW SUBMISSIONS (Phase 3 v1) are BUILT but NOT YET LIVE.
+   - PUBLIC CREW SUBMISSIONS (Phase 3 v1) are LIVE as of 2026-08-19. Anyone
+     can submit a crew from the site. Schema is applied, the env flag is set
+     in Vercel, and both entry points render: the "Submit a crew" card on "/"
+     and "+ Add a missing crew" on the map panel. Verified end to end on the
+     live site (landing card -> /submit -> form).
      crew_submissions_schema.sql + /submit + components/SubmitForm.js.
      Submissions go to their own crew_submissions table (NEVER directly into
      crews), anon can INSERT but NOT SELECT (it holds emails), RLS pins
      status='pending', a trigger rate-limits, and approve_submission(id) copies
-     an approved row into crews with source='user_submitted'. Review with
-     `select * from pending_submissions;`. TWO OWNER STEPS REMAIN: run the
-     schema SQL, and set NEXT_PUBLIC_SUBMISSIONS_ENABLED=true in Vercel to make
-     the map link visible.
+     an approved row into crews with source='user_submitted'.
+     REVIEW THE QUEUE: `select * from pending_submissions;` then
+     `select approve_submission(id);` or `select reject_submission(id,'why')`.
+     NOTHING a stranger submits reaches the map without that approval.
+     KILL SWITCH: set NEXT_PUBLIC_SUBMISSIONS_ENABLED to anything but "true"
+     in Vercel and REDEPLOY. It is a NEXT_PUBLIC_ var, so it is compiled into
+     the bundle at build time — changing it without a rebuild does nothing.
+     Known limitations were accepted deliberately, not missed; they're written
+     up in TODO_LATER.md (rate limit doubles as a DoS vector, broad sequence
+     grant, no retention policy on reviewed rows).
 
 4. Open items (confirm with me before starting anything):
 

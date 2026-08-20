@@ -22,7 +22,13 @@ visitor couldn't discover from a screen of dots. No login was ever added.
 ## The stack (all free, no paid keys)
 
 - **Frontend:** Next.js (React), deployed on **Vercel** (free tier).
-  **Live at https://usfiremaps.com.**
+  **Live at https://usfiremaps.com** — custom domain since 2026-08-19,
+  registered and DNS-hosted at Cloudflare. Both records are CNAMEs to Vercel,
+  deliberately **DNS-only (grey cloud)**: proxying them blocks Vercel's
+  certificate and, with Cloudflare's default Flexible SSL, causes a redirect
+  loop. `www` 308-redirects to the bare domain, which is canonical.
+  **`crew-map-five.vercel.app` still serves the site and is not redirected**,
+  on purpose, so existing bookmarks keep working.
 - **Database + API:** **Supabase** (hosted Postgres + auto REST API). Free tier.
 - **Map:** **Leaflet** + **OpenStreetMap** tiles (no API key, no signup).
 - **Geocoding:** **OpenStreetMap Nominatim** — bulk runs happen locally at build
@@ -281,7 +287,7 @@ ten-odd agencies with no way to tell them apart. `crews.agency` fixes that.
 - **`lib/agencies.js`** owns the vocabulary and ordering, the way
   `lib/regions.js` owns regions. Options are gated to agencies actually present.
 
-### Phase 3 v1 — public crew submissions ⚠️ BUILT, NOT YET LIVE (2026-08-15)
+### Phase 3 v1 — public crew submissions ✅ LIVE (built 2026-08-15, live 2026-08-19)
 The answer to the coverage gap: rather than hand-sourcing R8/R9/R10 data, let
 the people who work those crews add them. **Nothing appears on the map without a
 human approving it.**
@@ -306,10 +312,23 @@ human approving it.**
   every other pin. A failed lookup still accepts the submission with NULL
   coords and flags it in the review view. **This is the first time the live app
   calls Nominatim**; it was build-time only before.
-- **Gated:** the map's "Add a missing crew" link only renders when
-  `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`, so it can be reviewed on a live
-  deploy before anyone can find it, and killed from Vercel without a code change.
-- **Two owner steps remain:** run the schema SQL, then flip the env flag.
+- **One flag, both doors.** The "Submit a crew" card on `/` and the
+  "+ Add a missing crew" link on the map panel both render only when
+  `NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true"`. That let the feature be
+  reviewed on a live deploy before anyone could find it, and it's still the
+  kill switch — set it to anything else and both entry points vanish.
+  **It's a `NEXT_PUBLIC_` variable, so it's compiled into the bundle at build
+  time: changing it in Vercel does nothing until you redeploy.** That bit
+  us — the variable was never actually saved in Vercel, so the "on" branch had
+  never run in production until 2026-08-19.
+- **Live and verified end to end (2026-08-19):** schema applied, flag set,
+  three cards on the landing page, the map panel link present, and the path
+  landing card → `/submit` → form walked in a browser on the live domain.
+  `approve_submission()` was exercised too, inside a `BEGIN/ROLLBACK`, and
+  correctly created a crew before being rolled back.
+- **Accepted limitations** (in `TODO_LATER.md`, decided not overlooked): the
+  hourly rate limit is also a DoS vector, the sequence grant is broader than
+  needed, and reviewed submissions are never cleaned up.
 
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never
