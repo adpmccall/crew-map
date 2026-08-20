@@ -47,6 +47,8 @@ ARCHITECTURE.md for the decisions.
       clear postings that have closed. Re-runnable; won't wipe on a bad pull.
 - [x] **Step 3 — Run + verify:** ran locally, `jobs` table populated (32 rows,
       good lat/lng + apply URLs). Migrated off the leaked legacy service_role key
+      (that key is now confirmed REVOKED — legacy keys disabled project-wide,
+      verified 2026-08-20 — and was never committed to git)
       to the new `sb_secret_` key (scripts already handled both formats).
 - [x] **Map layer:** shipped as an amber ring on crews with a posting within
       50 mi, plus a "hiring nearby" crew filter.

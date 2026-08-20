@@ -133,8 +133,26 @@ as an amber ring around a nearby crew. **That ring is gone entirely.**
   829 crews" never moves, because posting filters no longer touch crews.
 
 ### Supabase key migration ✅
-- The original **legacy `service_role` key was exposed** (pasted into chat) and
-  has been **rotated**. Migrated to Supabase's new key system: **`sb_secret_`**
+- The original **legacy `service_role` key was exposed** (pasted into chat).
+  It is **REVOKED, not merely replaced — verified 2026-08-20.**
+
+  **Why the distinction matters:** a legacy Supabase key is a JWT signed by the
+  project's JWT secret. There is no per-key revocation list, so generating new
+  keys and switching to them does NOT kill the old one — it stays valid until
+  legacy keys are disabled project-wide or the JWT secret is rotated. "We use a
+  different key now" would have left the leaked key fully live, bypassing every
+  RLS policy including the no-SELECT rule that keeps submitter emails private.
+
+  **How it was confirmed:** Supabase's dashboard offers "Re-enabling legacy API
+  keys", an action that only appears when they are currently disabled.
+
+  **Also verified 2026-08-20 — the key was never committed.** A scan of all
+  28,578 diff lines across every commit on every branch found no `eyJ…` legacy
+  JWT, no `sb_secret_` key, and no match for the real USAJOBS key. The leak was
+  confined to chat. That matters because the repo is public: there is nothing
+  to purge and no history rewrite is needed. Don't go looking for one.
+
+  Migrated to Supabase's new key system: **`sb_secret_`**
   for the local script, **`sb_publishable_`** for the app. **Legacy keys are
   disabled.** Scripts handle both key formats (JWT `eyJ…` vs `sb_…`).
 
@@ -376,7 +394,8 @@ backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
 
 - **Secret key (`sb_secret_` / old `service_role`) is LOCAL SCRIPTS ONLY.** Never
   in app code, screenshots, or git; pass via env var. (One leaked in an earlier
-  session and had to be rotated. Don't paste keys into chat.)
+  session; legacy keys are now disabled project-wide and that key is confirmed
+  dead — see the key-migration section. Don't paste keys into chat.)
 - **App uses only the public `sb_publishable_` key** via `NEXT_PUBLIC_` env vars.
 - **RLS stays public-read only** until Phase 3.
 - **$0 constraint:** Vercel + Supabase + Leaflet/OSM (+ free USAJOBS/Nominatim at

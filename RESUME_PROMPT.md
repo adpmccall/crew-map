@@ -192,8 +192,12 @@ load it before doing anything.
 6. Safety rules — never violate these:
    - App uses ONLY the public sb_publishable_ key (NEXT_PUBLIC_SUPABASE_ANON_KEY).
    - The secret key (sb_secret_) is for local scripts only — never in app code,
-     screenshots, or git. NEVER paste any key into chat (one leaked before and
-     had to be rotated).
+     screenshots, or git. NEVER paste any key into chat — one leaked this way
+     before. That key is CONFIRMED DEAD (legacy API keys are disabled
+     project-wide, verified 2026-08-20) and was never committed to git
+     (verified by scanning all history). Note that with Supabase, issuing a new
+     key does NOT revoke an old legacy one — only disabling legacy keys or
+     rotating the JWT secret does.
    - Stay $0: Next.js/Vercel + Supabase + Leaflet/OpenStreetMap (+ free
      USAJOBS/Nominatim at build time only). No paid keys.
    - No login gate to view anything. ('/' = landing page, '/map' = the map.)

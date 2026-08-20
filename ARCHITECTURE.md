@@ -265,8 +265,14 @@ submissions ever get busy.
   for 66 distinct points; 16 count badges which with the singles total 98
   postings; zero rings; crews unchanged at 829. Filtering to Temporary gives
   13 pins / 13 postings and Permanent 56 / 83, while the crew count never moves.
-- **Security note:** the original legacy `service_role` key was exposed and has
-  been rotated; we migrated to Supabase's new key system (`sb_secret_` for the
+- **Security note:** the original legacy `service_role` key was exposed. It is
+  **revoked, confirmed 2026-08-20** — legacy API keys are disabled project-wide,
+  which is the only thing that actually kills a legacy key. (They're JWTs signed
+  by the project's JWT secret, so there is no per-key revocation: issuing new
+  keys leaves the old one valid until legacy keys are disabled or the JWT secret
+  rotates.) A full git-history scan also confirmed the key was never committed —
+  relevant because this repo is public. We migrated to Supabase's new key system
+  (`sb_secret_` for the
   local script, `sb_publishable_` for the app at deploy time).
 
 ### Phase 3 — Community submissions (v1)  · ✅ DONE (2026-08-15)
@@ -344,7 +350,8 @@ submissions ever get busy.
   tracked in `TODO_NOW.md`.
 - **Phase 2.5 (Currently hiring): ✅ done.** Backend (`jobs_schema.sql`,
   `refresh_jobs.py`, ~98-row `jobs` table) plus a **daily GitHub Actions
-  refresh**. Legacy service_role key rotated to the new
+  refresh**. Legacy service_role key revoked (legacy keys disabled
+  project-wide, confirmed 2026-08-20); migrated to the new
   `sb_secret_`/`sb_publishable_` system; the workflow uses a separate CI-only
   secret key.
 - **Phase 2.8 (Postings as markers): ✅ done 2026-08-14.** Postings are amber
