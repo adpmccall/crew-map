@@ -73,6 +73,25 @@ ARCHITECTURE.md for the decisions.
       polished, no startup-marketing gloss. Same claims, fewer flourishes.
 - [x] Fixed `titleCaseState` capitalising "District Of Columbia".
 
+## Visibility: analytics + submission alerts — ⚠️ NEEDS 2 SETUP STEPS
+Added once the site went public, because both blind spots were created by the
+launch itself.
+- [x] **Vercel Web Analytics** (`@vercel/analytics`, mounted in `app/layout.js`).
+      Page views and referrers only — no cookies, no cross-site tracking, so no
+      consent banner needed. It's Vercel's own, on the same free tier, so it
+      adds no service. **Why it matters:** coverage now depends on submissions
+      arriving, and without measurement "no submissions" can't be told apart
+      from "nobody saw the form."
+- [ ] **OWNER STEP: turn Analytics on** in Vercel → project → Analytics tab →
+      Enable. The code is deployed; data only starts collecting after that.
+- [x] **Email alert on every new submission** (`submission_notifications.sql`) —
+      a Postgres trigger calling Resend directly via `pg_net`. No Edge Function,
+      no API route, no polling. Secrets live in Supabase Vault. The trigger
+      swallows every error: a broken mailer must never cost us a submission.
+- [ ] **OWNER STEP: create a free Resend account + API key**, then store it and
+      your address in Vault and run `submission_notifications.sql`. Full
+      instructions are in the header of that file.
+
 ## Public crew submissions (Phase 3 v1) — ✅ LIVE (2026-08-19)
 Our answer to nationwide coverage: let the people who work the missing crews add
 them, instead of hand-sourcing data. Nothing goes live without human approval.

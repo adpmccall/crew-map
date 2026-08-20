@@ -133,8 +133,8 @@ current data is Western-heavy because that's what the source files gave us, not
 because the scope stops there.
 
 ## Observability / sharing
-- [ ] Add Vercel Web Analytics (free tier) to track traffic — worth doing before
-      sharing the link widely, so we can see if anyone actually uses it.
+- [x] **Vercel Web Analytics — DONE 2026-08-20.** Mounted in `app/layout.js`.
+      Needs enabling in the Vercel dashboard to start collecting.
 
 ## Third-party data — ✅ RESOLVED (Phase 2.6)
 - [x] "Wildland Fire Handcrew Atlas" KMZ (527 placemarks) — **permission to use
