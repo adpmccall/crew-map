@@ -23,6 +23,48 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## Popup + mobile pass — ✅ DONE 2026-08-21
+Three UI issues, all verified in Chrome at a real mobile viewport (a 390x760 /
+390x844 frame, so the `max-width: 768px` rules genuinely applied — Chrome on
+macOS refuses to make a *window* narrower than ~500px, which is why the frame).
+
+- [x] **Agency is now in the crew popup**, as the FIRST row. It's the most
+      identifying fact after the name, and it frames the rest: Forest and Region
+      only mean anything for Forest Service crews, so leading with "Forest" was
+      burying the one field that applies to all 829. Order matches the filter
+      panel, where Agency also sits above Region.
+
+- [x] **Honest fallback titles for the 316 crews with no `crew_name`.**
+      Measured first: 316 of 829 (38%) have none — all `usfs_official`; 308 fall
+      back to `district`, 8 to `forest`. The old title printed the raw value,
+      so pins read "CLEAR CREEK RD" — which looks like a street address.
+      Now `tidyPlaceName()` in `CrewPopup.js` title-cases it and expands the
+      abbreviations (`RD`→Ranger District, `RDS`→Ranger Districts, `NF`→National
+      Forest, `NP`→National Park), and a muted italic line under the title says
+      **"Crew name not on file — showing the base"**.
+      **Why not invent a name:** "Clear Creek Crew" would assert something the
+      data doesn't say, and it produces nonsense for the 18 districts that
+      aren't districts ("Supervisors Office", "PAWNEE NATIONAL GRASSLAND",
+      "GRANGEVILLE AIR CENTER"). Showing the real place plus a stated gap keeps
+      it truthful. Verified against all the awkward real values, including
+      `LOCHSA/POWELL RD` → "Lochsa/Powell Ranger District".
+
+- [x] **Legend fixed on mobile** — `.map-wrapper` was `height: 100vh`. On phone
+      browsers `vh` is the LARGE viewport (the height with browser chrome
+      hidden); the map fills the screen so nothing scrolls, the URL bar never
+      hides, and the legend at `bottom: 10px` sat *underneath* the toolbar. Now
+      `height: 100vh` followed by `height: 100dvh` — dynamic viewport height,
+      which tracks the visible area. Desktop is unchanged (there vh == dvh).
+
+- [x] **Also fixed, found while testing:** a tall crew popup autopanned flush to
+      the top edge and its title landed under the floating "Filters" button and
+      the "Showing N of N" chip — so the crew name was unreadable on a phone,
+      which defeated the point of the title work above. Leaflet measures against
+      the raw viewport and knows nothing about our own floating UI, so all three
+      `<Popup>`s now pass `autoPanPaddingTopLeft={[5, 72]}`. Verified: the popup
+      now stops at exactly y=72 and the title is the topmost element at its own
+      coordinates.
+
 ## Phase 1 — CORE ✅ COMPLETE
 - [x] Detail popup on pin click: crew name, forest, town/state,
       crew type, region, housing, website link (when present)

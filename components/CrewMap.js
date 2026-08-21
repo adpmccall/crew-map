@@ -124,6 +124,15 @@ function titleCase(s) {
   return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Leaflet pans the map so an open popup fits on screen — but it measures against
+// the raw viewport and knows nothing about our own floating UI. On mobile the
+// "Filters" button and the "Showing N of N" chip sit across the top, so a tall
+// popup gets panned flush to the top edge and its FIRST LINE — the crew name —
+// ends up underneath them. Telling Leaflet to keep 72px of clearance at the top
+// makes it stop short, so the title always lands below our chrome.
+// [left, top]; the left value is Leaflet's default.
+const POPUP_PAN_PADDING = [5, 72];
+
 export default function CrewMap() {
   const [crews, setCrews] = useState([]);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "error"
@@ -581,7 +590,7 @@ export default function CrewMap() {
             return (
               <Fragment key={crew.id}>
                 <Marker position={position} icon={typeIcons[t.key]}>
-                  <Popup>
+                  <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
                     <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
                   </Popup>
                 </Marker>
@@ -601,7 +610,7 @@ export default function CrewMap() {
                   fillOpacity: 0.85,
                 }}
               >
-                <Popup>
+                <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
                   <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
                 </Popup>
               </CircleMarker>
@@ -627,7 +636,7 @@ export default function CrewMap() {
                   letting it run off the screen. A town with 6 postings (Boise
                   today) is already taller than a laptop viewport, and the
                   precision note at the bottom was falling below the fold. */}
-              <Popup maxHeight={320}>
+              <Popup maxHeight={320} autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
                 <PostingPopup
                   town={t.town}
                   state={t.state}

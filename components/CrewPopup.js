@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { withProtocol, isHttpUrl } from "../lib/formatting";
+import { agencyLabel } from "../lib/agencies";
 import PostingList from "./PostingList";
 
 // Housing is stored as "YES" / "NO" / "" (blank). Blank means we simply don't
@@ -62,18 +63,47 @@ function Row({ label, value }) {
 // summary — keeps a crew near a busy hiring town from producing a giant popup.
 const MAX_JOBS_SHOWN = 5;
 
+// 316 of 829 crews — 38%, all from the original curated Forest Service list —
+// have no `crew_name`. For those we know WHERE the crew is based, not what it's
+// called, and the popup title has to be honest about that difference.
+//
+// The old fallback printed the raw ranger district as if it were the crew's
+// name: "CLEAR CREEK RD". That reads as a street address, and worse, it quietly
+// asserts a name we don't have. The 18 districts that aren't districts at all
+// make it plainer — "Supervisors Office", "PAWNEE NATIONAL GRASSLAND".
+//
+// So: expand the abbreviations and title-case it, so the fallback reads as the
+// PLACE it actually is ("Clear Creek Ranger District"), and pair it with an
+// explicit note that the crew name isn't recorded. Nothing is invented — a
+// firefighter reading it sees a real administrative unit plus a stated gap.
+function tidyPlaceName(raw) {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  return (
+    s
+      .toLowerCase()
+      // Title-case each word, including after / and - so "LOCHSA/POWELL" works.
+      .replace(/(^|[\s/\-])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase())
+      // The source data abbreviates these; spelled out they read as places
+      // rather than as road names.
+      .replace(/\bRds\b/g, "Ranger Districts")
+      .replace(/\bRd\b/g, "Ranger District")
+      .replace(/\bNf\b/g, "National Forest")
+      .replace(/\bNp\b/g, "National Park")
+  );
+}
+
 // `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
 // by the map. It's empty (default) for crews with no open postings within range.
 export default function CrewPopup({ crew, nearbyJobs = [] }) {
-  // The Handcrew Atlas merge gave us a real `crew_name` for many crews (every
-  // row the Atlas contributed, plus the 138 of ours it matched), so prefer it.
-  // Crews the Atlas never matched still have no name, so we fall back to the
-  // original behavior: the ranger district (e.g. "BUTTE RD"), then the forest.
-  const crewName =
-    (crew.crew_name && crew.crew_name.trim()) ||
-    (crew.district && crew.district.trim()) ||
-    (crew.forest && crew.forest.trim()) ||
-    "Unnamed crew";
+  // A real name when we have one — every Atlas row, plus the 124 curated rows
+  // the Atlas matched. Otherwise the crew's base, clearly labelled as such.
+  const realName = (crew.crew_name || "").trim();
+  const placeName =
+    tidyPlaceName(crew.district) || tidyPlaceName(crew.forest) || "";
+  const crewName = realName || placeName || "Crew";
+  // Drives the "name not on file" note under the title.
+  const nameIsKnown = Boolean(realName);
 
   // Trim-safe versions of the optional fields.
   const resource = crew.resource && crew.resource.trim() ? crew.resource : "Not listed";
@@ -95,6 +125,14 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
     <div className="crew-popup">
       <h3 className="crew-popup-title">{crewName}</h3>
 
+      {/* Says the quiet part out loud rather than dressing the district up as a
+          name. Muted and small — the gap should look deliberate, not broken. */}
+      {!nameIsKnown && (
+        <p className="crew-popup-noname">
+          Crew name not on file — showing the base
+        </p>
+      )}
+
       {/* Renders nothing when there's no photo, or when the photo fails. */}
       <CrewPhoto url={photoUrl} alt={`${crewName} crew photo`} />
 
@@ -102,6 +140,13 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
         {/* Forest / Location / Region are skipped entirely when blank. Crew
             type and Housing always show, because "Not listed" and "Unknown"
             are genuinely useful answers rather than empty ones. */}
+
+        {/* Agency leads: it's the single most identifying fact after the name,
+            and it frames the rest. Forest and Region below only mean anything
+            for Forest Service crews — a county or tribal crew has neither, so
+            opening with "Forest" buried the one field that always applies.
+            Matches the filter panel, where Agency also sits above Region. */}
+        <Row label="Agency" value={agencyLabel(crew.agency)} />
         <Row label="Forest" value={crew.forest} />
         <Row label="Location" value={location} />
         <Row label="Crew type" value={resource} />

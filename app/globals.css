@@ -10,7 +10,18 @@ body {
    status box below. */
 .map-wrapper {
   position: relative;
+  /* 100vh FIRST as the fallback, then 100dvh for browsers that support it.
+     WHY THIS MATTERS ON MOBILE: on phone browsers `100vh` means the LARGE
+     viewport — the height the page would have if the URL bar were hidden. The
+     map fills the screen so there's nothing to scroll, the bar never hides, and
+     anything anchored to the bottom of a 100vh box (the legend, at bottom:10px)
+     sits UNDERNEATH the browser toolbar. It was reachable only by fiddling the
+     bar out of the way.
+     `dvh` is the DYNAMIC viewport height: it tracks the visible area as browser
+     chrome shows and hides, so the legend stays on screen. Desktop is
+     unaffected — there dvh and vh are the same number. */
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
 }
 
@@ -202,6 +213,17 @@ body {
   margin: 0 0 6px;
   font-size: 15px;
   line-height: 1.2;
+}
+
+/* Sits under the popup title when we're showing a base rather than a real crew
+   name. Small, muted and italic — it should read as a footnote about the data,
+   never as part of the crew's identity. */
+.crew-popup-noname {
+  margin: -3px 0 7px;
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.35;
+  color: #777;
 }
 
 /* Optional crew photo (only Handcrew Atlas rows have one). Deliberately
