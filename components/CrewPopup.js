@@ -4,7 +4,11 @@
 // so the layout is easy to read and adjust, separate from the map logic.
 
 import { useEffect, useState } from "react";
-import { withProtocol, isHttpUrl } from "../lib/formatting";
+import {
+  withProtocol,
+  isHttpUrl,
+  crewDisplayName,
+} from "../lib/formatting";
 import { agencyLabel } from "../lib/agencies";
 import PostingList from "./PostingList";
 
@@ -63,47 +67,14 @@ function Row({ label, value }) {
 // summary — keeps a crew near a busy hiring town from producing a giant popup.
 const MAX_JOBS_SHOWN = 5;
 
-// 316 of 829 crews — 38%, all from the original curated Forest Service list —
-// have no `crew_name`. For those we know WHERE the crew is based, not what it's
-// called, and the popup title has to be honest about that difference.
-//
-// The old fallback printed the raw ranger district as if it were the crew's
-// name: "CLEAR CREEK RD". That reads as a street address, and worse, it quietly
-// asserts a name we don't have. The 18 districts that aren't districts at all
-// make it plainer — "Supervisors Office", "PAWNEE NATIONAL GRASSLAND".
-//
-// So: expand the abbreviations and title-case it, so the fallback reads as the
-// PLACE it actually is ("Clear Creek Ranger District"), and pair it with an
-// explicit note that the crew name isn't recorded. Nothing is invented — a
-// firefighter reading it sees a real administrative unit plus a stated gap.
-function tidyPlaceName(raw) {
-  const s = (raw || "").trim();
-  if (!s) return "";
-  return (
-    s
-      .toLowerCase()
-      // Title-case each word, including after / and - so "LOCHSA/POWELL" works.
-      .replace(/(^|[\s/\-])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase())
-      // The source data abbreviates these; spelled out they read as places
-      // rather than as road names.
-      .replace(/\bRds\b/g, "Ranger Districts")
-      .replace(/\bRd\b/g, "Ranger District")
-      .replace(/\bNf\b/g, "National Forest")
-      .replace(/\bNp\b/g, "National Park")
-  );
-}
-
 // `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
 // by the map. It's empty (default) for crews with no open postings within range.
 export default function CrewPopup({ crew, nearbyJobs = [] }) {
   // A real name when we have one — every Atlas row, plus the 124 curated rows
   // the Atlas matched. Otherwise the crew's base, clearly labelled as such.
-  const realName = (crew.crew_name || "").trim();
-  const placeName =
-    tidyPlaceName(crew.district) || tidyPlaceName(crew.forest) || "";
-  const crewName = realName || placeName || "Crew";
-  // Drives the "name not on file" note under the title.
-  const nameIsKnown = Boolean(realName);
+  // Shared with the correction form via lib/formatting so a report and the pin
+  // it came from always show the same title.
+  const { name: crewName, known: nameIsKnown } = crewDisplayName(crew);
 
   // Trim-safe versions of the optional fields.
   const resource = crew.resource && crew.resource.trim() ? crew.resource : "Not listed";
@@ -171,6 +142,18 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
           </>
         )}
       </dl>
+
+      {/* The way to tell us this crew is wrong. Gated by the SAME flag as every
+          other door into the submission flow (the landing card, the map panel
+          link) — one switch, so a review pause closes all of them together
+          rather than leaving this one quietly open.
+          It carries ?crew=<id>, which is what puts the form into correction
+          mode and tells the reviewer which pin was clicked. */}
+      {process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true" && (
+        <a className="crew-popup-report" href={`/submit?crew=${crew.id}`}>
+          Something wrong with this one?
+        </a>
+      )}
 
       {/* Open postings near this crew.
           The wording is deliberate. This does NOT say the crew is hiring or

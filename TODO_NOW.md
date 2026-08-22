@@ -23,6 +23,58 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## Trust + corrections pass — 2026-08-21
+Three decisions taken deliberately before sharing the site with real
+firefighters. All three are the owner's calls, recorded here with the reasoning
+so a later session doesn't quietly undo them.
+
+- [x] **Hiring layer now defaults OFF.** Posting pins carry `zIndexOffset={1000}`
+      and are larger than crew pins, so defaulting the layer on made job
+      postings the loudest thing on a map whose stated purpose is finding crews.
+      Crews first is the intended first impression. The toggle stays in the
+      panel, and the landing page's hiring card links to **`/map?hiring=1`** so
+      someone who arrived *for* the postings still lands with them on.
+      Verified: cold load = 829 crew pins / 0 posting pins; `?hiring=1` = 58.
+
+- [x] **Public correction reports** — `/submit?crew=<id>`, linked from the foot
+      of every crew popup (gated by `NEXT_PUBLIC_SUBMISSIONS_ENABLED`, the same
+      one switch as every other door into the submission flow).
+      **Chosen over an email contact address on purpose:** one reviewed pipeline
+      that already has RLS, a rate limit, and an email notification beats a
+      second unstructured channel.
+      Schema is `crew_corrections_schema.sql`. Key points:
+      * `submission_kind` ('new_crew' | 'correction') + `crew_id` on the
+        existing `crew_submissions` table — no second table, so no second RLS
+        policy, trigger, or queue to keep in step.
+      * `crew_name` / `agency` / `state` / `town` **lost their NOT NULL**, and a
+        CHECK re-imposes them for `new_crew` only. Corrections don't carry those
+        fields. Copying the target crew's values in was rejected outright: 316
+        crews have no `crew_name` and most Atlas rows have no `town`, so it
+        would have meant writing placeholder text to satisfy a constraint.
+      * `approve_submission()` now **refuses** a correction — running it would
+        create a duplicate crew from a report that the original was wrong.
+        `resolve_correction()` closes a report out and deliberately does NOT
+        touch `crews`; the fix is applied by hand.
+      * **TWO REVIEW QUEUES NOW.** `pending_submissions` = new crews only;
+        `pending_corrections` = corrections joined to the crew so the claim and
+        the current value sit side by side.
+      * `submission_notifications.sql` sends a different email per kind.
+
+- [x] **About section on the landing page** (`/#about`), and the map panel's
+      "About this map" link now points at it rather than at the hero, which
+      explained nothing about the data.
+      **This deliberately partially reverses the earlier privacy sweep** that
+      removed data-sourcing disclosure — reinstated on purpose, for the
+      liability/trust reason, not by forgetting that decision. The site uses
+      agency names, FS region structure and live federal job postings and said
+      nowhere that it isn't a government product; for an audience of federal
+      employees that's the misunderstanding worth heading off.
+      Still says nothing identifying: "a personal project", and the handcrew
+      atlas is credited without being named or linked.
+      Content: non-affiliation, the three data sources, and a "What it gets
+      wrong" list (town-centre pins, unnamed crews, unknown housing, thin
+      non-western coverage, duty-station-not-crew job postings).
+
 ## Pre-launch review — ✅ FIXES SHIPPED 2026-08-21
 A deliberate pass over the first-time experience before the site goes to real
 firefighters. Everything below was reproduced at a true 390x760 phone viewport

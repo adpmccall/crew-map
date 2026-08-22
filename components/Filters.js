@@ -294,10 +294,13 @@ export default function Filters({
         </a>
       )}
 
-      {/* Way back to the landing page. Ungated — unlike the submission form,
+      {/* Way back to the landing page, and specifically to the About section —
+          the link is called "About this map" and used to land on the hero,
+          which says what the map DOES but not what it is, where the data came
+          from, or that it isn't official. Ungated: unlike the submission form,
           the landing page always exists, and without this the only route back
           is editing the URL. */}
-      <a className="filter-about-link" href="/">
+      <a className="filter-about-link" href="/#about">
         About this map
       </a>
     </div>

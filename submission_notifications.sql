@@ -78,6 +78,7 @@ declare
   subject    text;
   body_html  text;
   where_txt  text;
+  crew_txt   text;
 begin
   -- Read the secrets. If either is missing we simply don't send — a
   -- half-configured mailer must never cost us a real submission.
@@ -91,27 +92,51 @@ begin
     return new;
   end if;
 
-  where_txt := coalesce(new.town, '?') || ', ' || coalesce(new.state, '?');
-  subject := 'New crew submission: ' || coalesce(new.crew_name, 'unnamed');
+  -- Two kinds of submission arrive on this table and they need different
+  -- emails: a new crew is judged on what it says, a correction is judged
+  -- against a crew already on the map. Sending one generic mail for both meant
+  -- squinting at every alert to work out which it was.
+  if new.submission_kind = 'correction' then
+    -- Pull the crew's current name so the subject line is useful on a phone
+    -- lock screen. The join is cheap and this runs once per submission.
+    select coalesce(c.crew_name, c.district, c.forest, '(unnamed)')
+      into crew_txt
+      from crews c where c.id = new.crew_id;
 
-  -- Plain and scannable. The point is to tell you something arrived and give
-  -- you enough to judge whether it needs attention now or can wait.
-  body_html :=
-    '<p><strong>' || coalesce(new.crew_name, 'unnamed') || '</strong><br>' ||
-    coalesce(new.agency, '?') || ' &middot; ' || where_txt || '</p>' ||
-    '<p>' ||
-      'Crew type: ' || coalesce(new.resource, 'not given') || '<br>' ||
-      'Website: '   || coalesce(new.website,  'not given') || '<br>' ||
-      'Notes: '     || coalesce(new.notes,    'none')      || '<br>' ||
-      'From: '      || coalesce(new.submitter_email, '?')  ||
-    '</p>' ||
-    case when new.latitude is null
-      then '<p><em>No coordinates — this one will not appear on the map until ' ||
-           'they are filled in.</em></p>'
-      else '' end ||
-    '<p>Review the queue:<br>' ||
-    '<code>select * from pending_submissions;</code><br>' ||
-    '<code>select approve_submission(' || new.id || ');</code></p>';
+    subject := 'Correction reported: ' || coalesce(crew_txt, 'crew ' || new.crew_id);
+
+    body_html :=
+      '<p><strong>Correction to ' || coalesce(crew_txt, 'a crew') ||
+        '</strong> (crew id ' || coalesce(new.crew_id::text, '?') || ')</p>' ||
+      '<p>' || coalesce(new.notes, '(no detail given)') || '</p>' ||
+      '<p>From: ' || coalesce(new.submitter_email, '?') || '</p>' ||
+      '<p>Review it:<br>' ||
+      '<code>select * from pending_corrections;</code><br>' ||
+      'Fix the crew by hand, then:<br>' ||
+      '<code>select resolve_correction(' || new.id || ');</code></p>';
+  else
+    where_txt := coalesce(new.town, '?') || ', ' || coalesce(new.state, '?');
+    subject := 'New crew submission: ' || coalesce(new.crew_name, 'unnamed');
+
+    -- Plain and scannable. The point is to tell you something arrived and give
+    -- you enough to judge whether it needs attention now or can wait.
+    body_html :=
+      '<p><strong>' || coalesce(new.crew_name, 'unnamed') || '</strong><br>' ||
+      coalesce(new.agency, '?') || ' &middot; ' || where_txt || '</p>' ||
+      '<p>' ||
+        'Crew type: ' || coalesce(new.resource, 'not given') || '<br>' ||
+        'Website: '   || coalesce(new.website,  'not given') || '<br>' ||
+        'Notes: '     || coalesce(new.notes,    'none')      || '<br>' ||
+        'From: '      || coalesce(new.submitter_email, '?')  ||
+      '</p>' ||
+      case when new.latitude is null
+        then '<p><em>No coordinates — this one will not appear on the map until ' ||
+             'they are filled in.</em></p>'
+        else '' end ||
+      '<p>Review the queue:<br>' ||
+      '<code>select * from pending_submissions;</code><br>' ||
+      '<code>select approve_submission(' || new.id || ');</code></p>';
+  end if;
 
   -- Fire and forget. pg_net queues this; the transaction does not wait on it.
   perform net.http_post(
@@ -163,6 +188,17 @@ revoke all on function notify_new_submission() from public, anon, authenticated;
 --
 --   -- email should arrive within a few seconds, then:
 --   delete from crew_submissions where crew_name = 'Notification Test';
+--
+-- And the correction variant (needs crew_corrections_schema.sql to have run;
+-- swap 1 for a real crews.id):
+--
+--   insert into crew_submissions
+--     (submission_kind, crew_id, notes, submitter_email)
+--   values
+--     ('correction', 1, 'The website on this one is dead.',
+--      'test@example.com');
+--
+--   delete from crew_submissions where submitter_email = 'test@example.com';
 --
 -- IF NO EMAIL ARRIVES, check in this order:
 --

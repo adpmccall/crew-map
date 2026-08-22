@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
+import { crewDisplayName } from "../lib/formatting";
 import {
   SUBMIT_AGENCIES,
   SUBMIT_CREW_TYPES,
@@ -55,6 +56,107 @@ export default function SubmitForm() {
   const [geo, setGeo] = useState({ state: "idle", lat: null, lng: null, label: "" });
   const openedAt = useRef(Date.now());
   const lastSentAt = useRef(0);
+
+  // --- correction mode ------------------------------------------------------
+  // Arriving as /submit?crew=417 (the link in that crew's map popup) switches
+  // this page from "add a crew" to "report what's wrong with this one".
+  // There is no way to pick a crew from here on purpose: identifying one out of
+  // 829 needs the map, and the map already has the link. Anyone landing on
+  // /submit directly gets the add-a-crew form, which is the right default.
+  const [mode, setMode] = useState("new"); // "new" | "correction"
+  const [targetCrew, setTargetCrew] = useState(null);
+  const [crewLoad, setCrewLoad] = useState("idle"); // idle|loading|ready|missing
+  const [problem, setProblem] = useState("");
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("crew");
+    // Only a plain integer. Anything else is a malformed or hand-edited link,
+    // and falling back to the add-a-crew form beats showing an error.
+    if (!raw || !/^\d+$/.test(raw)) return;
+
+    setMode("correction");
+    setCrewLoad("loading");
+    let cancelled = false;
+
+    (async () => {
+      // A public read with the same anon key the map uses — `crews` is
+      // public-read by design, so this needs no special permission.
+      const { data, error } = await supabase
+        .from("crews")
+        .select("id, crew_name, district, forest, town, state, agency, resource, website")
+        .eq("id", Number(raw))
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        setCrewLoad("missing");
+        return;
+      }
+      setTargetCrew(data);
+      setCrewLoad("ready");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleCorrectionSubmit(event) {
+    event.preventDefault();
+    setErrorMsg("");
+    setFieldErrors({});
+
+    // Same three quiet anti-spam checks as the main form, in the same order.
+    if (honeypot) {
+      setStatus("sent");
+      return;
+    }
+    if ((Date.now() - openedAt.current) / 1000 < MIN_SECONDS_ON_FORM) {
+      setErrorMsg("That was quick. Have another look and try again.");
+      return;
+    }
+    if (Date.now() - lastSentAt.current < RESUBMIT_COOLDOWN_MS) {
+      setErrorMsg("You just sent one, give it a second.");
+      return;
+    }
+
+    const errs = {};
+    // 10 characters matches the database CHECK, so the form rejects it here
+    // with a readable message rather than letting Postgres do it with a code.
+    if (problem.trim().length < 10)
+      errs.problem = "Tell us a bit more about what's wrong.";
+    if (problem.length > 1000) errs.problem = "Keep this under 1000 characters.";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.submitter_email.trim()))
+      errs.submitter_email = "We need an email that works.";
+    setFieldErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setStatus("sending");
+
+    // Only four columns. crew_name/agency/state/town stay NULL: this is a
+    // report about an existing crew, not a proposal for a new one, and copying
+    // the crew's current values in would put unasserted data in the row.
+    const { error } = await supabase.from("crew_submissions").insert({
+      submission_kind: "correction",
+      crew_id: targetCrew.id,
+      notes: problem.trim(),
+      submitter_email: form.submitter_email.trim(),
+    });
+
+    if (error) {
+      setStatus("error");
+      console.error("Correction submit failed:", error.message);
+      setErrorMsg(
+        error.message?.includes("Too many") ||
+          error.message?.includes("submitted several")
+          ? error.message
+          : "That didn't send. Try again in a minute."
+      );
+      return;
+    }
+
+    lastSentAt.current = Date.now();
+    setStatus("sent");
+  }
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -193,30 +295,191 @@ export default function SubmitForm() {
   }
 
   if (status === "sent") {
+    const isCorrection = mode === "correction";
     return (
       <div className="submit-page">
         <div className="submit-done">
           <h1>Got it, thanks.</h1>
           <p>
-            It's in the queue. Someone looks at these by hand so it won't show up
-            on the map right away. If something needs checking we'll email you.
+            {isCorrection
+              ? "Someone will check this against the crew and fix it by hand. " +
+                "The map won't change straight away. If we need to ask you " +
+                "anything we'll email you."
+              : "It's in the queue. Someone looks at these by hand so it won't " +
+                "show up on the map right away. If something needs checking " +
+                "we'll email you."}
           </p>
           <p className="submit-actions">
             <Link href="/map">← Back to the map</Link>
-            <button
-              type="button"
-              className="submit-another"
-              onClick={() => {
-                setForm(EMPTY);
-                setGeo({ state: "idle", lat: null, lng: null, label: "" });
-                setStatus("editing");
-                openedAt.current = Date.now();
-              }}
-            >
-              Add another one
-            </button>
+            {/* No "report another" — the next report starts from the next pin,
+                and there is no crew picker on this page by design. */}
+            {!isCorrection && (
+              <button
+                type="button"
+                className="submit-another"
+                onClick={() => {
+                  setForm(EMPTY);
+                  setGeo({ state: "idle", lat: null, lng: null, label: "" });
+                  setStatus("editing");
+                  openedAt.current = Date.now();
+                }}
+              >
+                Add another one
+              </button>
+            )}
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // === CORRECTION MODE =====================================================
+  // Kept as its own return rather than woven through the add-a-crew form with
+  // conditionals: the two share almost no fields, and interleaving them would
+  // make both harder to read for the sake of avoiding some duplicated markup.
+  if (mode === "correction") {
+    const crewTitle = targetCrew ? crewDisplayName(targetCrew) : null;
+    const where = targetCrew
+      ? [targetCrew.town, targetCrew.state].filter(Boolean).join(", ")
+      : "";
+
+    return (
+      <div className="submit-page">
+        <form className="submit-form" onSubmit={handleCorrectionSubmit} noValidate>
+          <p className="submit-back">
+            <Link href="/map">← Back to the map</Link>
+          </p>
+
+          <h1>Report a correction</h1>
+
+          <noscript>
+            <p className="submit-noscript">
+              This form needs JavaScript switched on to send.
+            </p>
+          </noscript>
+
+          {crewLoad === "loading" && (
+            <p className="submit-intro">Looking up that crew…</p>
+          )}
+
+          {/* A hand-edited or stale id. Say so plainly and point at the map
+              rather than showing a form that can't be submitted. */}
+          {crewLoad === "missing" && (
+            <>
+              <p className="submit-intro">
+                We couldn&apos;t find that crew. It may have been removed, or
+                the link may be out of date.
+              </p>
+              <p className="submit-actions">
+                <Link className="submit-cta-link" href="/map">
+                  Go back to the map
+                </Link>
+              </p>
+            </>
+          )}
+
+          {crewLoad === "ready" && targetCrew && (
+            <>
+              <p className="submit-intro">
+                You&apos;re reporting a problem with this crew. Tell us
+                what&apos;s wrong and someone will check it by hand.
+              </p>
+
+              {/* Shown read-only so the reporter can confirm they clicked the
+                  pin they meant before typing anything. */}
+              <div className="submit-target">
+                <strong>{crewTitle.name}</strong>
+                {!crewTitle.known && (
+                  <span className="submit-target-note">
+                    Crew name not on file — this is the base
+                  </span>
+                )}
+                <dl>
+                  {where && (
+                    <>
+                      <dt>Location</dt>
+                      <dd>{where}</dd>
+                    </>
+                  )}
+                  {targetCrew.forest && (
+                    <>
+                      <dt>Forest</dt>
+                      <dd>{targetCrew.forest}</dd>
+                    </>
+                  )}
+                  {targetCrew.resource && (
+                    <>
+                      <dt>Crew type</dt>
+                      <dd>{targetCrew.resource}</dd>
+                    </>
+                  )}
+                  {targetCrew.website && (
+                    <>
+                      <dt>Website</dt>
+                      <dd className="submit-target-url">{targetCrew.website}</dd>
+                    </>
+                  )}
+                </dl>
+              </div>
+
+              <label>
+                <span className="label-line">
+                  What&apos;s wrong? <span className="req">required</span>
+                </span>
+                <textarea
+                  rows={5}
+                  value={problem}
+                  maxLength={1000}
+                  onChange={(e) => {
+                    setProblem(e.target.value);
+                    setFieldErrors((x) => ({ ...x, problem: undefined }));
+                  }}
+                  placeholder="Wrong location, dead website, the crew doesn't exist any more, the type is off — whatever you know."
+                />
+                {fieldErrors.problem && (
+                  <span className="field-error">{fieldErrors.problem}</span>
+                )}
+              </label>
+
+              <label>
+                <span className="label-line">
+                  Your email <span className="req">required</span>
+                </span>
+                <input
+                  type="email"
+                  value={form.submitter_email}
+                  maxLength={200}
+                  onChange={(e) => set("submitter_email", e.target.value)}
+                />
+                <span className="field-hint">
+                  Only so we can ask you about this if we need to. It isn&apos;t
+                  shown anywhere.
+                </span>
+                {fieldErrors.submitter_email && (
+                  <span className="field-error">{fieldErrors.submitter_email}</span>
+                )}
+              </label>
+
+              {/* Honeypot — hidden from people, irresistible to bots. */}
+              <input
+                type="text"
+                name={HONEYPOT_FIELD}
+                className="submit-honeypot"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                aria-hidden="true"
+              />
+
+              {errorMsg && <div className="submit-error">{errorMsg}</div>}
+
+              <button type="submit" disabled={status === "sending"}>
+                {status === "sending" ? "Sending…" : "Send correction"}
+              </button>
+            </>
+          )}
+        </form>
       </div>
     );
   }

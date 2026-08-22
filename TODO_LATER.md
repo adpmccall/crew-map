@@ -18,6 +18,9 @@ when it becomes the active work. See `ARCHITECTURE.md` for phase definitions.
       ever drops real field postings.
 
 ## Crew submissions — known limitations, ACCEPTED not forgotten
+**Note (2026-08-21):** corrections now share this table via `submission_kind`.
+Every limitation below applies to them too — in particular the global hourly
+rate limit is shared between new-crew submissions and correction reports.
 Three trade-offs made knowingly when public submissions shipped (2026-08-15).
 None is a bug; all are written down so a future session doesn't "discover" them
 and assume they were oversights. Revisit if submissions get real traffic.

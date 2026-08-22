@@ -36,7 +36,11 @@ const SECTIONS = [
     cta: "Open the map",
   },
   {
-    href: "/map",
+    // "?hiring=1" switches the Hiring layer on as the map opens. The layer is
+    // off by default so a cold visitor sees crews first, but someone who
+    // clicked THIS card asked for postings — they should get them without
+    // having to find the toggle.
+    href: "/map?hiring=1",
     eyebrow: "Hiring",
     title: "See what's open",
     body:
@@ -88,6 +92,68 @@ export default function Landing() {
         ))}
       </main>
 
+      {/* ABOUT — the destination for the map panel's "About this map" link,
+          which until now pointed at this page's hero and explained nothing.
+          WHY THIS EXISTS. The site uses agency names, Forest Service region
+          structure and live federal job postings, and said nowhere that it
+          isn't a government product. For an audience of federal employees that
+          is the one misunderstanding worth heading off directly. The rest is
+          the honest version of what the data can and can't tell you — the gaps
+          are easier to trust when they're stated than when they're found. */}
+      <section className="landing-about" id="about">
+        <h2>About this map</h2>
+
+        <p>
+          This is a personal project, not an official one. It isn&apos;t
+          affiliated with the US Forest Service, the Department of the Interior,
+          or any federal agency, and nothing on it is an official record.
+        </p>
+
+        <h3>Where the data comes from</h3>
+        <ul>
+          <li>Public Forest Service crew listings.</li>
+          <li>A community-maintained handcrew atlas, used with permission.</li>
+          <li>Open federal job postings from USAJOBS, refreshed daily.</li>
+        </ul>
+
+        <h3>What it gets wrong</h3>
+        <ul>
+          <li>
+            Pins sit in the middle of town, not at the actual station. That can
+            be a few miles out.
+          </li>
+          <li>
+            Plenty of crews have no name recorded. Where that happens the map
+            shows the base it works from and says so, rather than inventing one.
+          </li>
+          <li>
+            Housing is unknown for a couple of hundred crews. Blank means we
+            don&apos;t know, not &ldquo;no&rdquo;.
+          </li>
+          <li>
+            Coverage is thinnest outside the western regions. That&apos;s a gap
+            in what we could source, not a decision about what counts.
+          </li>
+          <li>
+            Job postings show the duty station USAJOBS lists, which isn&apos;t
+            always where the work happens, and they aren&apos;t tied to any
+            particular crew.
+          </li>
+        </ul>
+
+        {/* Gated by the same flag as every other door into the submission flow
+            — otherwise turning submissions off would leave this paragraph
+            pointing at a link that no longer exists. */}
+        {submissionsOn && (
+          <>
+            <h3>Something wrong?</h3>
+            <p>
+              Open the crew on the map and use the link in its details. Someone
+              reads every one of these by hand.
+            </p>
+          </>
+        )}
+      </section>
     </div>
   );
 }

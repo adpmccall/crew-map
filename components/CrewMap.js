@@ -146,10 +146,21 @@ export default function CrewMap() {
   // crews and deliberately NON-blocking: if the jobs read fails, the crew map
   // still works — the hiring toggle just shows an empty state.
   const [jobs, setJobs] = useState([]);
-  // Is the Hiring LAYER enabled? On by default. Turning it off hides the
-  // posting pins and the "near here" list inside crew popups — a clean layer
-  // on/off that never changes which crews are drawn.
-  const [hiringLayerOn, setHiringLayerOn] = useState(true);
+  // Is the Hiring LAYER enabled? OFF by default, deliberately.
+  //
+  // It used to default on, and the posting pins are drawn ABOVE the crew pins
+  // and are larger (see zIndexOffset below) — so the loudest thing on a cold
+  // first load was job postings, on a map whose whole purpose is finding crews.
+  // Crews first is the correct first impression; the toggle sits in the panel
+  // for anyone who wants postings, and the landing page's hiring card links to
+  // "?hiring=1" so arriving from THERE still lands on the layer switched on.
+  const [hiringLayerOn, setHiringLayerOn] = useState(() => {
+    // `window` doesn't exist while Next.js renders on the server. This whole
+    // component is loaded with ssr:false so it always does here, but the guard
+    // keeps the initializer honest and costs nothing.
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("hiring") === "1";
+  });
   // MOBILE ONLY: is the filter drawer open? Starts closed so the map is the
   // dominant thing on a phone. On desktop this is ignored — CSS keeps the panel
   // always visible there — so desktop behavior is unchanged.
