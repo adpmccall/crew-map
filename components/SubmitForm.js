@@ -100,6 +100,20 @@ export default function SubmitForm() {
     };
   }, []);
 
+  // The page's <title> is set statically in app/submit/page.js ("Add a crew"),
+  // which is right for the default form and wrong once ?crew= has flipped this
+  // page into correction mode. Metadata can't branch on a query string in a
+  // client component, so correct it here — it's what shows in the tab, in
+  // history, and in a bookmark.
+  useEffect(() => {
+    if (mode !== "correction") return;
+    const previous = document.title;
+    document.title = "Report a correction · Crew Map";
+    return () => {
+      document.title = previous;
+    };
+  }, [mode]);
+
   async function handleCorrectionSubmit(event) {
     event.preventDefault();
     setErrorMsg("");
