@@ -47,6 +47,155 @@ body {
   color: #111;
 }
 
+/* The loading box grows a second line once a load turns slow, and a third
+   state — with a retry — when it fails outright. Stacked so the note and the
+   button sit under the headline rather than beside it. */
+.map-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(320px, calc(100vw - 24px));
+}
+.map-status-note {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #555;
+}
+.map-status--error strong { font-weight: 600; }
+.map-status-retry {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #b91c1c;
+  color: white;
+  cursor: pointer;
+}
+.map-status-retry:hover { background: #991b1b; }
+
+/* ---------------------------------------------------------------------------
+   ZERO RESULTS — centred over the map, deliberately not anchored to the filter
+   panel: on mobile the panel is a drawer that has just been dismissed, so a
+   message attached to it would vanish with it.
+   `pointer-events` is off on the card and back on for the button, so the box
+   never blocks panning the map underneath it.
+   --------------------------------------------------------------------------- */
+.map-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  color: #111;
+  max-width: min(320px, calc(100vw - 40px));
+}
+.map-empty-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #555;
+}
+.map-empty-clear {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 15px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: #b91c1c;
+  color: white;
+  cursor: pointer;
+}
+.map-empty-clear:hover { background: #991b1b; }
+
+/* ---------------------------------------------------------------------------
+   Shared shell for the standalone message pages — app/not-found.js (404) and
+   app/error.js (the error boundary). Same palette as the landing page so a
+   failure still looks like part of the site rather than a server default.
+   --------------------------------------------------------------------------- */
+.message-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f7f7f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+  box-sizing: border-box;
+}
+.message-card {
+  background: white;
+  border-radius: 10px;
+  padding: 28px 26px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.message-card h1 {
+  margin: 0 0 10px;
+  font-size: 24px;
+  color: #111;
+}
+.message-card p {
+  margin: 0 0 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #444;
+}
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+}
+.message-cta {
+  display: inline-block;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: #b91c1c;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+.message-cta:hover { background: #991b1b; }
+.message-link {
+  font-size: 15px;
+  color: #555;
+}
+
+/* Only ever rendered inside <noscript> on the submit form. */
+.submit-noscript {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-left: 3px solid #b91c1c;
+  background: #fdf2f2;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #444;
+}
+
 /* The filter controls panel, floating over the map at top-left. */
 .filter-panel {
   position: absolute;
@@ -72,6 +221,7 @@ body {
   /* If the panel ever gets taller than the screen, let it scroll instead of
      spilling off the map. */
   max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow-y: auto;
 }
 
@@ -633,8 +783,24 @@ body {
     left: 0;
     width: 85vw;
     max-width: 330px;
+    /* TWO bugs lived here, and together they stranded the bottom of the drawer.
+       1. `100vh` is the LARGE viewport on phones (see .map-wrapper above), so
+          the drawer was sized to the screen WITH the browser toolbar hidden —
+          but the toolbar never hides, so ~90px of it sat under the toolbar.
+       2. Without `border-box`, the 20px of vertical padding is added OUTSIDE
+          the 100vh height, making the drawer 20px taller than the screen even
+          at its best. Because the drawer is also the scroll container, that
+          last 20px could not be scrolled to on ANY device — scrolled fully to
+          the bottom, "About this map" still sat off-screen.
+       Measured before the fix at a 390x760 viewport with every section open:
+       content 2729px, visible 760px, and the last 20px unreachable.
+       border-box pulls the padding inside the height, and dvh tracks the
+       actually-visible area, so the drawer's own scrollbar now reaches the end. */
+    box-sizing: border-box;
     height: 100vh;
+    height: 100dvh;
     max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
     z-index: 2000; /* above the scrim */
     padding: 10px 12px;
@@ -706,6 +872,7 @@ body {
   /* Taller lists now that the drawer is full-height. */
   .checkbox-list {
     max-height: 42vh;
+    max-height: 42dvh;
   }
 
   /* ---- Legend → collapsible, collapsed by default ---- */
@@ -855,6 +1022,7 @@ body {
 
 .submit-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f7f7f6;
   padding: 24px 16px 64px;
   font-family: system-ui, sans-serif;
@@ -1079,6 +1247,48 @@ body {
   .submit-form, .submit-done { padding: 18px; }
 }
 
+/* ---------------------------------------------------------------------------
+   The submit form's mobile pass. The map panel got finger-sized controls back
+   in July; this form was built later and never did, so it inherited desktop
+   sizing on phones.
+
+   THE FONT-SIZE IS NOT COSMETIC. iOS Safari zooms the whole page in whenever
+   you focus an input whose font-size is under 16px — and it does not zoom back
+   out afterwards. On a form with six text fields that means tapping the first
+   field jerks the layout and every field after it is fought at the wrong zoom.
+   16px is the threshold that turns the behaviour off; it is the reason this
+   block exists and it should not be lowered.
+
+   44px is the usual finger-target minimum, matching the map panel.
+   --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .submit-form input[type="text"],
+  .submit-form input[type="url"],
+  .submit-form input[type="email"],
+  .submit-form select,
+  .submit-form textarea {
+    font-size: 16px; /* keep at or above 16px — see note above */
+    min-height: 44px;
+  }
+  .submit-form textarea { min-height: 96px; }
+
+  /* The crew-type checkboxes are 13px boxes. Growing the box helps, but the
+     real fix is that the whole row is the tap target: the <label> wraps the
+     input, so anywhere in the row toggles it. */
+  .submit-form .submit-type {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .submit-form .submit-type input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+  .submit-form button[type="submit"] { min-height: 48px; font-size: 16px; }
+}
+
 /* Label text and its required/optional badge on ONE line. The label itself is a
    column flex container (so the control sits under it), which would otherwise
    push a bare badge onto its own row. */
@@ -1101,6 +1311,7 @@ body {
 
 .landing {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f7f7f6;
   font-family: system-ui, sans-serif;
   color: #111;

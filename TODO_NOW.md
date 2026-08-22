@@ -23,6 +23,57 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## Pre-launch review — ✅ FIXES SHIPPED 2026-08-21
+A deliberate pass over the first-time experience before the site goes to real
+firefighters. Everything below was reproduced at a true 390x760 phone viewport
+or against a deliberately broken Supabase host, not reasoned about.
+
+### Mobile
+- [x] **The filter drawer stranded its own bottom.** `.filter-panel.is-open` was
+      `height: 100vh` (the LARGE viewport — same trap as the legend) AND
+      `content-box`, so its 20px of padding sat outside the height. The drawer
+      was therefore ~20px taller than the screen at best, and it is its own
+      scroll container, so scrolled fully to the end "About this map" was still
+      off-screen — on any device. On a real phone the toolbar took "Clear
+      filters" too. Fixed with `box-sizing: border-box` + `100dvh`.
+      Measured after: panel height == viewport exactly, both controls reachable.
+- [x] **The submit form never got a mobile pass.** Every input was 14px, which
+      makes **iOS Safari zoom the page in on focus and not zoom back out** — six
+      text fields, six lurches. Now 16px (the threshold that disables it) and
+      44px minimum targets, matching the map panel. Crew-type rows are 44px+.
+- [x] Remaining `vh` swept to `dvh`: `.landing`/`.submit-page` `min-height`
+      (was forcing ~90px of pointless scroll on a phone) and `.checkbox-list`.
+
+### Error states
+- [x] **Raw `TypeError: Failed to fetch` was shown to users.** The map's failure
+      box printed `error.message` verbatim. Now the raw text goes to the console
+      and the screen says "The map couldn't load", explains it's usually a
+      connection problem, and offers **Try again** (the load was pulled into a
+      `useCallback` so it can retry without a page reload).
+- [x] **A dead host took ~40s to fail, showing only "Loading crews…"** the whole
+      time — indistinguishable from a hang. After 8s it now says "Still loading
+      crews…" with a note that a slow connection will do it.
+- [x] **Added `app/error.js`.** Without it, any unhandled client exception showed
+      Next's own production fallback: "Application error: a client-side
+      exception has occurred (see the browser console)". Now plain words, a
+      Try again that calls `reset()`, and a link to the map.
+- [x] **Added `app/not-found.js`.** The built-in 404 was unstyled and, worse,
+      had no links at all — a dead end you could only escape via the URL bar.
+- [x] Checked and left alone: the geocode-failure copy on the submit form
+      ("Couldn't find that town automatically. Send it anyway…") is already
+      right, and the submit failure path already avoids raw text.
+
+### Empty / edge states
+- [x] **Zero results looked broken.** The only feedback was "Showing 0 of 829" —
+      over a map still covered in amber posting pins, because Hiring is a
+      separate layer that stays on. Now a centred card: "No crews match these
+      filters", a Clear filters button, and — only when posting pins are
+      actually on screen — a line saying the amber pins are jobs, not crews.
+- [x] **`/submit` with JavaScript off** rendered a complete, typeable form whose
+      submit button silently did nothing (React handles submit; there is no
+      `action` fallback). Added a `<noscript>` notice so a contribution can't be
+      swallowed in silence.
+
 ## Popup + mobile pass — ✅ DONE 2026-08-21
 Three UI issues, all verified in Chrome at a real mobile viewport (a 390x760 /
 390x844 frame, so the `max-width: 768px` rules genuinely applied — Chrome on

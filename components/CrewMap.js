@@ -8,7 +8,7 @@
 // It's a client component ("use client") and is loaded with ssr:false from
 // app/page.js, because Leaflet only works in the browser.
 
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -136,7 +136,9 @@ const POPUP_PAN_PADDING = [5, 72];
 export default function CrewMap() {
   const [crews, setCrews] = useState([]);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "error"
-  const [errorMsg, setErrorMsg] = useState("");
+  // Set when the first load is taking long enough that silence starts to look
+  // like breakage. Only changes the wording, never the behaviour.
+  const [slowLoad, setSlowLoad] = useState(false);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   // How pins are drawn: "region" = colored circles, "type" = crew-type symbols.
   const [mode, setMode] = useState("region");
@@ -171,11 +173,15 @@ export default function CrewMap() {
     return icons;
   }, []);
 
-  useEffect(() => {
+  // Pulled out of the effect and wrapped in useCallback so the "Try again"
+  // button can re-run exactly the same load without reloading the page.
+  const loadCrews = useCallback(async () => {
     // Fetch all crews that have coordinates. 829 rows is still under Supabase's
     // default 1000-row limit, so a single request returns them all. (If the
     // table grows past 1000 this will silently truncate — page it then.)
-    async function loadCrews() {
+    setStatus("loading");
+    setSlowLoad(false);
+    {
       const { data, error } = await supabase
         .from("crews")
         .select(
@@ -189,16 +195,32 @@ export default function CrewMap() {
         .not("longitude", "is", null);
 
       if (error) {
-        setErrorMsg(error.message);
+        // The raw message is for us, not for the visitor. A failed request here
+        // produces strings like "TypeError: Failed to fetch" or a PostgREST code
+        // — accurate, and meaningless to a firefighter looking for their crew.
+        // It goes to the console; the screen gets plain words and a way to retry.
+        console.error("Couldn't load crews:", error.message);
         setStatus("error");
         return;
       }
       setCrews(data ?? []);
       setStatus("ready");
     }
-
-    loadCrews();
   }, []);
+
+  useEffect(() => {
+    loadCrews();
+  }, [loadCrews]);
+
+  // A dead Supabase host doesn't fail fast — DNS has to time out first, which
+  // measured at roughly 40 seconds. For all that time the screen said only
+  // "Loading crews…", which is indistinguishable from a hang. After 8 seconds
+  // say so, so the wait reads as slow rather than broken.
+  useEffect(() => {
+    if (status !== "loading") return;
+    const t = setTimeout(() => setSlowLoad(true), 8000);
+    return () => clearTimeout(t);
+  }, [status]);
 
   useEffect(() => {
     // Load open job postings from the public `jobs` table (same anon key, same
@@ -478,9 +500,31 @@ export default function CrewMap() {
     <div className="map-wrapper">
       {/* While loading or on error, show a small message box. Once ready, the
           filter panel (which also shows the crew count) takes its place. */}
-      {status === "loading" && <div className="map-status">Loading crews…</div>}
+      {status === "loading" && (
+        <div className="map-status">
+          {slowLoad ? "Still loading crews…" : "Loading crews…"}
+          {slowLoad && (
+            <span className="map-status-note">
+              This is taking longer than usual. A slow connection will do it.
+            </span>
+          )}
+        </div>
+      )}
       {status === "error" && (
-        <div className="map-status">Couldn&apos;t load crews: {errorMsg}</div>
+        <div className="map-status map-status--error">
+          <strong>The map couldn&apos;t load.</strong>
+          <span className="map-status-note">
+            This is usually a connection problem rather than anything wrong with
+            the site.
+          </span>
+          <button
+            type="button"
+            className="map-status-retry"
+            onClick={loadCrews}
+          >
+            Try again
+          </button>
+        </div>
       )}
       {status === "ready" && (
         <>
@@ -501,6 +545,32 @@ export default function CrewMap() {
               <span className="mobile-count">
                 Showing {visibleCrews.length} of {crews.length}
               </span>
+            </div>
+          )}
+
+          {/* ZERO RESULTS. Without this the only feedback is the count reading
+              "Showing 0 of 829" — and because the Hiring layer is separate and
+              stays on, the map underneath is still covered in amber posting
+              pins. A count of nought over a map full of markers reads as a
+              broken filter, so say what happened and offer the way out.
+              Only mention the amber pins when some are actually on screen,
+              otherwise the explanation is more confusing than the thing it
+              explains. */}
+          {visibleCrews.length === 0 && !mobilePanelOpen && (
+            <div className="map-empty" role="status">
+              <strong>No crews match these filters.</strong>
+              {hiringLayerOn && postingTowns.length > 0 && (
+                <span className="map-empty-note">
+                  The amber pins still showing are open job postings, not crews.
+                </span>
+              )}
+              <button
+                type="button"
+                className="map-empty-clear"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
             </div>
           )}
 

@@ -235,6 +235,21 @@ export default function SubmitForm() {
           anything goes up.
         </p>
 
+        {/* This form is submitted by React, not by the browser — there is no
+            `action` for it to fall back on. With JavaScript off the fields all
+            render and accept typing, so it LOOKS like it works, and then the
+            submit button does nothing at all and says nothing about why.
+            Silently swallowing someone's contribution is the worst outcome
+            here, so tell them up front. <noscript> renders only when scripts
+            are off, so nobody else ever sees this. */}
+        <noscript>
+          <p className="submit-noscript">
+            This form needs JavaScript switched on to send. If you can&apos;t
+            turn it on, the map itself still works — the crew just can&apos;t be
+            submitted from here.
+          </p>
+        </noscript>
+
         <label>
           <span className="label-line">Crew name <span className="req">required</span></span>
           <input
