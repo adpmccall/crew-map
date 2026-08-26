@@ -23,6 +23,34 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## BUG — correction reports were silently discarded (fixed 2026-08-25)
+The first real test of the correction flow produced nothing: no row, no email.
+
+**Cause.** The correction form's honeypot was written as
+`className="submit-honeypot"`. The stylesheet only ever defined `.submit-hp`.
+A class name with no rule behind it is not an error — the element just renders
+unstyled — so the honeypot, whose entire job is to be invisible, rendered as an
+ordinary text box just above the submit button. Anything that filled it
+(browser autofill matches on the field name `company_website`) hit the bot
+branch in `handleCorrectionSubmit`, which shows the success screen and
+**deliberately never inserts**. A real report was thanked and thrown away.
+
+**Why nothing caught it.** The build passes, the page renders, and the silent
+success is intentional anti-bot behaviour — telling a bot it was caught just
+teaches it. Every failure mode here is designed to be quiet, which is exactly
+what made a visible honeypot catastrophic rather than cosmetic.
+
+**Fixed** by reusing the same `.submit-hp` wrapper as the add-a-crew form.
+Do not give the honeypot its own class name again.
+
+**Same root cause, milder:** the correction form also invented `field-error` /
+`field-hint` for what the form already calls `err` / `submit-hint`, so
+validation messages rendered as plain black text instead of red. Rewritten.
+
+**Guard added:** `scripts/check_classnames.py` reports any className in the JSX
+with no matching rule in `globals.css`. It found both of these. Run it after
+touching markup:  `python3 scripts/check_classnames.py`
+
 ## Trust + corrections pass — 2026-08-21
 Three decisions taken deliberately before sharing the site with real
 firefighters. All three are the owner's calls, recorded here with the reasoning
