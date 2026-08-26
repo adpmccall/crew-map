@@ -451,7 +451,7 @@ export default function SubmitForm() {
                   placeholder="Wrong location, dead website, the crew doesn't exist any more, the type is off — whatever you know."
                 />
                 {fieldErrors.problem && (
-                  <span className="field-error">{fieldErrors.problem}</span>
+                  <span className="err">{fieldErrors.problem}</span>
                 )}
               </label>
 
@@ -465,26 +465,38 @@ export default function SubmitForm() {
                   maxLength={200}
                   onChange={(e) => set("submitter_email", e.target.value)}
                 />
-                <span className="field-hint">
+                <span className="submit-hint">
                   Only so we can ask you about this if we need to. It isn&apos;t
                   shown anywhere.
                 </span>
                 {fieldErrors.submitter_email && (
-                  <span className="field-error">{fieldErrors.submitter_email}</span>
+                  <span className="err">{fieldErrors.submitter_email}</span>
                 )}
               </label>
 
-              {/* Honeypot — hidden from people, irresistible to bots. */}
-              <input
-                type="text"
-                name={HONEYPOT_FIELD}
-                className="submit-honeypot"
-                tabIndex={-1}
-                autoComplete="off"
-                value={honeypot}
-                onChange={(e) => setHoneypot(e.target.value)}
-                aria-hidden="true"
-              />
+              {/* Honeypot. Uses the SAME `.submit-hp` wrapper as the
+                  add-a-crew form above — not a second class of its own.
+                  This shipped once as className="submit-honeypot", a name with
+                  no CSS rule behind it, so the input rendered as an ordinary
+                  visible text box. Anything that filled it (browser autofill
+                  matches on the name `company_website`) hit the bot branch in
+                  handleCorrectionSubmit, which shows the success screen and
+                  deliberately never inserts — so a real report vanished with a
+                  thank-you. A honeypot that isn't hidden isn't a honeypot; it's
+                  a trapdoor under your own users. */}
+              <div className="submit-hp" aria-hidden="true">
+                <label>
+                  Company website
+                  <input
+                    type="text"
+                    name={HONEYPOT_FIELD}
+                    value={honeypot}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    onChange={(e) => setHoneypot(e.target.value)}
+                  />
+                </label>
+              </div>
 
               {errorMsg && <div className="submit-error">{errorMsg}</div>}
 
