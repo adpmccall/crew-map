@@ -364,7 +364,7 @@ export default function SubmitForm() {
             <Link href="/map">← Back to the map</Link>
           </p>
 
-          <h1>Report a correction</h1>
+          <h1>Tell us about this crew</h1>
 
           <noscript>
             <p className="submit-noscript">
@@ -395,8 +395,9 @@ export default function SubmitForm() {
           {crewLoad === "ready" && targetCrew && (
             <>
               <p className="submit-intro">
-                You&apos;re reporting a problem with this crew. Tell us
-                what&apos;s wrong and someone will check it by hand.
+                Something wrong with this crew, or a question or suggestion
+                about it? Either way, put it here — someone reads every one of
+                these by hand.
               </p>
 
               {/* Shown read-only so the reporter can confirm they clicked the
@@ -438,7 +439,7 @@ export default function SubmitForm() {
 
               <label>
                 <span className="label-line">
-                  What&apos;s wrong? <span className="req">required</span>
+                  What&apos;s up? <span className="req">required</span>
                 </span>
                 <textarea
                   rows={5}
@@ -448,7 +449,7 @@ export default function SubmitForm() {
                     setProblem(e.target.value);
                     setFieldErrors((x) => ({ ...x, problem: undefined }));
                   }}
-                  placeholder="Wrong location, dead website, the crew doesn't exist any more, the type is off — whatever you know."
+                  placeholder="Wrong location, dead website, the crew doesn't exist any more, the type is off — whatever you know. Questions and suggestions are fine here too."
                 />
                 {fieldErrors.problem && (
                   <span className="err">{fieldErrors.problem}</span>
@@ -501,7 +502,7 @@ export default function SubmitForm() {
               {errorMsg && <div className="submit-error">{errorMsg}</div>}
 
               <button type="submit" disabled={status === "sending"}>
-                {status === "sending" ? "Sending…" : "Send correction"}
+                {status === "sending" ? "Sending…" : "Send this in"}
               </button>
             </>
           )}
