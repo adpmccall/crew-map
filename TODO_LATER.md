@@ -120,7 +120,7 @@ row and no pin on the map. Do not close this by editing a number in a doc.
       one that does show, so nothing looks broken — which is exactly why this
       would otherwise go unnoticed indefinitely.
 
-## Atlas crew patches — CAUSE CONFIRMED, re-hosting in progress (2026-08-27)
+## Atlas crew patches — ✅ FIXED 2026-08-28 (re-hosted on Supabase Storage)
 **The 114 images are crew logos/patches**, one per Atlas crew — bespoke artwork
 ("NORTH CENTRAL MONTANA BLM / WOODHAWK WFM", "ST. JOE WFM · EST 2019 · IDAHO
 PANHANDLE N.F."). Worth preserving, which is why we're re-hosting rather than
@@ -153,6 +153,11 @@ regardless. Verified on every sampled image, with and without the query string.
    display. All 114 return 200 from the command line and all 114 fail in a real
    browser. Command-line testing cannot detect this class of fault; only a
    browser can. That is the lesson worth keeping from this whole episode.
+
+**DONE.** All 114 re-hosted and confirmed rendering in a real browser: the
+load-test page reported 114/114, and the patches show in live crew popups.
+Verified in the database afterwards — 0 rows still point at Google, 114 point at
+Supabase Storage, 829 crews total, 715 still with no photo at all (untouched).
 
 **The fix:** `photo_rehost.py` — downloads the originals, converts to WebP
 (49.1 MB -> 4.4 MB at 900px/q82, transparency preserved), uploads to the

@@ -23,6 +23,28 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## Atlas crew patches now display — ✅ DONE 2026-08-28
+The 114 Atlas photos never rendered. Cause was **not** what two earlier
+diagnoses claimed — full write-up in `TODO_LATER.md`, but in short: Google
+serves them with `cross-origin-resource-policy: same-site`, which browsers
+enforce and curl ignores. So the command line reported HTTP 200 with real image
+bytes for URLs no browser would ever display.
+
+Fixed by re-hosting: `photo_rehost.py` converts the originals to WebP
+(49.1 MB → 4.4 MB at 900px/q82, transparency kept) into the public Supabase
+Storage bucket `crew-photos`, then rewrites only those 114 `photo_url` values.
+
+**These are crew logos/patches**, not generic photos — bespoke per-crew artwork.
+That's why they were worth keeping rather than dropping.
+
+Verified after the run: 0 rows on Google, 114 on Supabase, 715 crews still with
+no photo (untouched), and — the check that counts — 114/114 loading in a browser
+plus patches visible in live crew popups.
+
+**The transferable lesson, worth not relearning:** curl cannot detect
+browser-enforced policies (CORP, CSP, mixed content). For anything that renders
+in a page, a green command-line check is not evidence. Test in a browser.
+
 ## BUG — correction reports were silently discarded (fixed 2026-08-25)
 The first real test of the correction flow produced nothing: no row, no email.
 
