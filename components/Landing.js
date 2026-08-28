@@ -151,6 +151,18 @@ export default function Landing() {
               Open the crew on the map and use the link in its details. Someone
               reads every one of these by hand.
             </p>
+            {/* Sits directly under the correction instructions on purpose, so
+                "the same form" refers unambiguously to the one just described.
+                Deliberately NOT a new contact route — no address, no second
+                channel — everything keeps flowing through the one reviewed
+                pipeline. Inside the gated block for the same reason as the
+                paragraph above: if submissions are switched off, this must not
+                survive pointing at a form that no longer exists. */}
+            <p>
+              Have a general question or suggestion instead of a specific
+              correction? Use the same form, and we&apos;ll get back to you
+              ASAP.
+            </p>
           </>
         )}
       </section>
