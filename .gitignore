@@ -58,3 +58,9 @@ merge_review_*.csv
 # --- Claude Code local (machine-specific) settings ---
 # Keep the shared subagent (.claude/agents/) tracked, but not local settings.
 .claude/settings.local.json
+
+# Re-hosted Atlas patch images: downloaded originals and the web-sized copies.
+# Same reasoning as the KMZ itself — this repo is public and these are other
+# people's crew artwork, so the files live in Supabase Storage, not in git.
+photo_rehost_files/
+photo_rehost_backup.json

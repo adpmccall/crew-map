@@ -120,14 +120,46 @@ row and no pin on the map. Do not close this by editing a number in a doc.
       one that does show, so nothing looks broken — which is exactly why this
       would otherwise go unnoticed indefinitely.
 
-## Atlas photo URLs are dead (deferred — popup degrades gracefully)
-- [ ] **Investigate `atlas_import.py`'s `gx_media_links` extraction.** All 114
-      stored `photo_url` values fail to load — verified by load-testing them in
-      the browser. Every one contains a literal `*` in the path
-      (`.../hostedimage/m/*/3AE5a_...`), which looks like an unsubstituted
-      placeholder rather than a real Google My Maps image URL. Low priority:
-      `CrewPopup.js` hides an image that fails, so the popup already looks
-      correct — the photo feature is simply inert until this is fixed.
+## Atlas crew patches — CAUSE CONFIRMED, re-hosting in progress (2026-08-27)
+**The 114 images are crew logos/patches**, one per Atlas crew — bespoke artwork
+("NORTH CENTRAL MONTANA BLM / WOODHAWK WFM", "ST. JOE WFM · EST 2019 · IDAHO
+PANHANDLE N.F."). Worth preserving, which is why we're re-hosting rather than
+dropping them.
+
+**The real cause is Google's CORP header, not our code.** The images are served
+with:
+
+    cross-origin-resource-policy: same-site
+
+CORP is enforced by the **browser**, not the server. Google returns the image
+bytes *and* a header saying only a same-site page may use them, so a patch
+renders on Google's own My Maps page and is discarded everywhere else. This is
+deliberate hotlink protection. No URL variant defeats it — stripping
+`?authuser=0&fife=`, adding a referrer, resizing: the header comes back
+regardless. Verified on every sampled image, with and without the query string.
+
+**TWO EARLIER DIAGNOSES WERE WRONG. Do not revive them:**
+
+1. *"The `*` is an unsubstituted placeholder / a bug in `atlas_import.py`'s
+   `gx_media_links` extraction."* No. The literal `*` appears in all 114
+   entries of the **source KMZ itself**, before our code touches it, and our
+   stored values match the KMZ byte for byte. The `*` is Google's normal export
+   format and has nothing to do with the failure. `atlas_import.py` is correct
+   and needs no change.
+
+2. *"The URLs return HTTP 200, so they aren't dead and this was a
+   misdiagnosis."* Also no — this was my error. **curl does not implement CORP**,
+   so it reports 200 and real image bytes for a URL no browser will ever
+   display. All 114 return 200 from the command line and all 114 fail in a real
+   browser. Command-line testing cannot detect this class of fault; only a
+   browser can. That is the lesson worth keeping from this whole episode.
+
+**The fix:** `photo_rehost.py` — downloads the originals, converts to WebP
+(49.1 MB -> 4.4 MB at 900px/q82, transparency preserved), uploads to the
+Supabase Storage bucket `crew-photos`, verifies each new URL is 200, an image,
+and **not** CORP-locked, and only then rewrites the 114 `photo_url` values. The
+other 715 crews are excluded by the query filter, not just by intent.
+Backup in `photo_rehost_backup.json`; `--rollback` restores from it.
 
 ## National coverage
 Now tracked as active work — see **"Finish nationwide coverage"** in
