@@ -252,16 +252,37 @@ body {
 .crew-popup-report:hover { color: #b91c1c; }
 
 /* The filter controls panel, floating over the map at top-left. */
-.filter-panel {
+/* The left rail. Holds the filter panel and the legend in one flex column so
+   they can never overlap — see the note in CrewMap.js. `pointer-events: none`
+   keeps the empty gap between them from swallowing map drags; the children
+   switch it back on for themselves. */
+.map-rail {
   position: absolute;
   top: 12px;
   left: 12px;
-  /* Above the map AND above the legend (which is z-index 1000 and, being later
-     in the DOM, would otherwise paint on top). The Crew type dropdown expands
-     downward far enough to reach the legend, and when it does the panel must
-     win — it's the thing the user is actively interacting with. Without this
-     the last two options sit behind the legend box and look missing. */
+  bottom: 12px;
   z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+}
+.map-rail > * {
+  pointer-events: auto;
+}
+
+.filter-panel {
+  /* Positioned by the rail now, not by coordinates of its own. */
+  position: static;
+  /* Shrink before the legend does, and scroll inside rather than growing past
+     the rail. min-height:0 is what actually lets a flex item shrink below its
+     content height — without it the panel would push the legend off-screen. */
+  flex: 0 1 auto;
+  min-height: 0;
+  /* z-index lives on .map-rail now. The old reason for it here — a Crew type
+     dropdown expanding down into the legend — can no longer happen: the
+     dropdown expands inside the panel, and the panel is bounded by the rail. */
   background: white;
   padding: 12px;
   border-radius: 8px;
@@ -273,10 +294,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* If the panel ever gets taller than the screen, let it scroll instead of
-     spilling off the map. */
-  max-height: calc(100vh - 24px);
-  max-height: calc(100dvh - 24px);
+  /* The rail bounds the height; this just makes the overflow scroll. */
   overflow-y: auto;
 }
 
@@ -471,10 +489,13 @@ body {
 /* Region color legend, floating at the bottom-left of the map. (Top-left is
    taken by the filter panel; bottom-right is Leaflet's attribution.) */
 .legend {
-  position: absolute;
-  bottom: 16px;
-  left: 12px;
-  z-index: 1000; /* above the map */
+  /* Placed by the rail. `margin-top: auto` pushes it to the bottom of the
+     column, which is where it has always visually sat; `flex: 0 0 auto` means
+     it never shrinks, so the legend is always fully readable and the panel is
+     the thing that gives way. */
+  position: static;
+  flex: 0 0 auto;
+  margin-top: auto;
   background: white;
   padding: 8px 10px;
   border-radius: 8px;
@@ -828,9 +849,20 @@ body {
     white-space: nowrap;
   }
 
+  /* MOBILE KEEPS THE OLD LAYOUT. `display: contents` removes the rail from the
+     box tree entirely, so the panel and legend position themselves exactly as
+     they did before the rail existed — the drawer is a modal over the whole
+     screen, which is why mobile never had the overlap in the first place.
+     Because the desktop rules above now say `position: static`, both elements
+     have to be given their positioning back here explicitly. */
+  .map-rail {
+    display: contents;
+  }
+
   /* Hide the panel by default on mobile; show it as a left drawer when open. */
   .filter-panel {
     display: none;
+    position: absolute;
   }
   .filter-panel.is-open {
     display: flex;
@@ -932,6 +964,10 @@ body {
 
   /* ---- Legend → collapsible, collapsed by default ---- */
   .legend {
+    position: absolute;
+    left: 12px;
+    margin-top: 0;
+    z-index: 1000;
     bottom: 10px;
     max-width: 60vw;
   }

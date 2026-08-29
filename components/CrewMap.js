@@ -593,6 +593,18 @@ export default function CrewMap() {
             />
           )}
 
+          {/* LEFT RAIL — the filter panel and the legend share one column.
+              They used to be positioned independently: the panel anchored to
+              top:12px growing downward, the legend anchored to bottom:16px,
+              both at left:12px and neither aware of the other. On a desktop
+              window a tall panel simply grew into the legend and, being
+              z-index 1100 against the legend's 1000, painted over its heading.
+              Mobile never showed it because the panel is a modal drawer there,
+              not a box sharing the corner.
+              As a flex column the overlap is impossible rather than unlikely:
+              the legend keeps its full height and the panel takes what's left,
+              scrolling inside itself when there isn't enough. */}
+          <div className="map-rail">
           <Filters
             stateOptions={stateOptions}
             regionOptions={regionOptions}
@@ -624,6 +636,7 @@ export default function CrewMap() {
             showHiring={hiringLayerOn && jobs.length > 0}
             presentRegions={regions}
           />
+          </div>
         </>
       )}
 

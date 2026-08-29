@@ -23,6 +23,48 @@ Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 - [x] Filter controls (state, region, crew type, housing) that narrow pins in
       real time, no reload
 
+## Filter panel overlapped the legend on desktop — ✅ FIXED 2026-08-28
+Desktop only; mobile was never affected.
+
+**Cause.** The two were positioned independently against opposite edges of the
+same corner — `.filter-panel` at `top: 12px` free to grow to
+`max-height: calc(100dvh - 24px)`, `.legend` at `bottom: 16px`, both at
+`left: 12px`, neither aware of the other. A tall panel grew into the legend and,
+at z-index 1100 against the legend's 1000, painted over its heading. Worse the
+more filter sections were open and the shorter the window.
+Mobile escaped it structurally: there the panel is `display: none` and becomes a
+full-height modal drawer, so it never shares the corner with anything.
+
+**Fix.** `.map-rail` — a flex column in `CrewMap.js` holding the panel and the
+legend, so the overlap is impossible rather than unlikely:
+  * legend `flex: 0 0 auto; margin-top: auto` — never shrinks, stays at the
+    bottom, always fully readable;
+  * panel `flex: 0 1 auto; min-height: 0; overflow-y: auto` — gives way and
+    scrolls internally. `min-height: 0` is load-bearing: without it a flex item
+    won't shrink below its content height and the panel would push the legend
+    off-screen instead.
+  * rail `pointer-events: none`, children `auto`, so the empty gap between them
+    doesn't swallow map drags.
+Mobile keeps the old layout exactly via `display: contents` on the rail, which
+removes it from the box tree. Both elements needed `position: absolute` restored
+in the mobile block, since the desktop rules now make them static.
+Retires the old z-index workaround on `.filter-panel`: the Crew type dropdown
+can no longer reach the legend, because the panel is bounded by the rail.
+
+**Verified** at 1440x900, 1280x720, 1100x650 and 390x760 with every filter
+section expanded: no overlap, a clean 12px gap, both fully inside the viewport,
+and on mobile the legend visible with the drawer closed plus the drawer fitting
+and scrolling to its end.
+
+**Two harness bugs worth remembering, both mine:**
+  1. The first harness called `f.remove()` and then read `W.innerHeight` off the
+     torn-down iframe — which returns 0, so every "bottom <= innerHeight" test
+     failed at every size and reported a working layout as broken. Capture
+     geometry while the frame is alive.
+  2. It also flagged the mobile drawer overlapping the legend as a failure. A
+     modal drawer covering what's behind it is the design. Overlap is only a
+     meaningful question in states where both are meant to be visible at once.
+
 ## Atlas crew patches now display — ✅ DONE 2026-08-28
 The 114 Atlas photos never rendered. Cause was **not** what two earlier
 diagnoses claimed — full write-up in `TODO_LATER.md`, but in short: Google
