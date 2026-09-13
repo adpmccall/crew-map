@@ -4,14 +4,38 @@ Standing instructions for working on this codebase. Read this first.
 
 ## What we're building
 
-A **free, beginner-friendly web app**: an interactive map of US Forest Service
-fire crews. The user:
+A **free, public web app** at **https://usfiremaps.com**: a searchable map of US
+wildland fire crews, plus the open federal fire jobs near them. Viewing and
+searching are **always free and never require an account** — that part has not
+changed and is non-negotiable.
 
-- filters by **state**, **crew type**, **housing (yes/no)**, and **region**;
-- sees matching crews appear as **pins** on a US map;
-- **clicks a pin** to see that crew's details.
+What is actually live today:
 
-That's the whole product for v1. Resist scope creep.
+- **The crew map** (`/map`) — **829 crews** as pins, narrowed by **state**,
+  **region**, **crew type**, **housing**, and **agency**. Click a pin for that
+  crew's details. This is still the CORE product; everything else is icing.
+- **Not Forest Service only — not since the Atlas merge.** `crews` spans 11
+  agencies (usfs, state, nps, local, county, blm, tribal, bia, fws, other, and
+  17 honestly `unknown`). **Don't write code, UI or copy that assumes USFS.**
+- **A hiring layer** — open USAJOBS fire postings as their own amber markers,
+  one per duty-station town, filtered by appointment type, pay grade and salary.
+  It defaults **off**: the map is for finding crews first.
+- **Public submissions and corrections** (`/submit`) — anyone can add a missing
+  crew, or report an error on an existing one via `/submit?crew=<id>`. Both land
+  in `crew_submissions`, **never** directly in `crews`, and nothing reaches the
+  map without a human approving it in SQL.
+- **A landing page** (`/`) explaining the site, with the map one click away at
+  `/map`. Regulars bookmark `/map` and never see it twice.
+
+**Scope is nationwide — all US fire crews, all regions.** The data we hold is
+Western-heavy today; that is an incomplete dataset we are actively filling, not
+a boundary we chose. Sourcing the missing Eastern, Southern and Alaska crews is
+the main open work — see `TODO_NOW.md`.
+
+**Scope creep is still worth resisting, but the line has moved.** The test is no
+longer "is it one of the four filters" — it's *does this help someone find a
+crew?*, and **`ARCHITECTURE.md`'s CORE/ICING tag is what settles it.** Don't use
+this section as a reason to refuse work the phase plan already accepted.
 
 ## Who this is for (read before writing code)
 
@@ -160,8 +184,12 @@ A standalone, beginner-friendly Python script (run on the user's own machine,
 **not** inside Claude). It:
 
 - reads `crews_cleaned.json`,
-- looks up `lat`/`lng` for each crew's `town` + `state` via the **free US Census
-  Bureau geocoder** (no key, no signup — consistent with our $0 rule),
+- looks up `lat`/`lng` for each crew's `town` + `state` via **Nominatim**,
+  OpenStreetMap's free geocoder — no key, no signup, and the same OSM project
+  that already serves our map tiles, so it keeps us at $0 and adds no new
+  service. (**Not** the US Census geocoder, which this file used to claim:
+  Census only resolves full street addresses, so it returned zero matches for
+  our town + state data.)
 - writes **`crews_with_coords.json`** (the map-ready file),
 - writes `still_missing.csv` for any it couldn't place (fix those by hand),
 - is **safe to re-run**: it skips records that already have coords, so an
@@ -172,17 +200,34 @@ If you change the data fields, keep this script in sync (it reads `town`,
 
 ## Build order — ship the simplest thing first
 
-1. **Display first.** Get a Leaflet map rendering pins read from Supabase. Goal:
-   see all crews on the map. (Prereq: run `geocode.py`, then load
-   `crews_with_coords.json` into a Supabase table.)
-2. **Filters.** Add state, crew type, housing, and region controls that narrow
-   which pins show. (Remember crew type = case-insensitive "contains.")
-3. **Detail popup.** Click a pin → show that crew's details (forest, district,
-   town, resource, housing, website link, notes). Make it **mobile-friendly**.
-4. **Only later: adding/editing data.** Defer this. When we get here, first
-   decide *who* is allowed to edit (auth) — don't build open write access.
+**The original v1 order is finished**, all four steps: the map rendered, the
+filters landed, the detail popup shipped and went mobile-friendly, and
+add/edit is no longer deferred — public submissions went live 2026-08-19 and
+correction reports 2026-08-21. So are the phases after it (hiring layer, agency
+filter, Handcrew Atlas merge, region backfill). **`ARCHITECTURE.md` holds the
+phase list and `TODO_NOW.md` holds what's next — read them, not this section,
+for the current queue.**
 
-Don't jump ahead. A working map with no filters beats a half-built everything.
+What still governs how any *new* work gets sequenced:
+
+1. **CORE before ICING, always.** Every phase in `ARCHITECTURE.md` carries one
+   tag or the other, and a CORE item outranks an ICING one even when the icing
+   is more interesting.
+2. **Ship the simplest version first.** A working small thing beats a half-built
+   everything. Don't jump ahead.
+3. **Display before edit.** Read-only shipped first on purpose, and any new data
+   layer should do the same.
+4. **Public writes go to their own table and wait for a human.** This is settled
+   and shipped, not an open question. The public may INSERT into
+   `crew_submissions` and do nothing else; `crews` stays public-read-only;
+   approval is a manual SQL call (`approve_submission()` /
+   `resolve_correction()`). **Don't open write access to `crews`, and don't add
+   an auth system without raising it first** — there deliberately isn't one, and
+   human review is the real gate.
+
+Point 4 replaces the old "only later: adding/editing data — defer this, and
+first decide *who* may edit." That question has been answered: **nobody edits
+directly; everything goes through the review queue.**
 
 ## Conventions recap
 
