@@ -107,6 +107,30 @@ submissions ever get busy.
   explicitly picks YES or NO; blank-housing crews still show otherwise.
 - **Records with no `resource`/`housing` still appear** on the map and only drop
   out when a filter genuinely excludes them.
+- **Atlas rows have a stable identity (`atlas_key`), and the import UPSERTs —
+  it never deletes and re-inserts.** Decided 2026-09-18. `crews.id` is
+  `generated always as identity`, so the old delete-all/insert-all import handed
+  every Atlas crew a brand-new id on every run. That silently detached any
+  correction report pointing at one, and it is how 14 crews ended up with no row
+  at all. Each placemark now carries `atlas_key` = `md5(name|lat 4dp|lon 4dp)`,
+  unique-indexed and required by CHECK on `handcrew_atlas` rows; the importer
+  diffs against it and updates, inserts or removes single rows. Ids survive
+  re-runs, and a run that changes nothing writes nothing.
+  **Do not reintroduce delete-all/insert-all.** `atlas_key()` is defined once,
+  in `atlas_import.py`, and `backfill_atlas_key.py` imports it rather than
+  reimplementing the formula — the same anti-drift pattern
+  `region_backfill_commit.py` uses for the matcher. Don't replace that import
+  with a second copy of the hash. See `atlas_stable_ids_migration.sql`.
+- **A crew that someone has reported a correction against cannot be deleted
+  (`ON DELETE RESTRICT`).** Decided 2026-09-18, replacing an `ON DELETE SET
+  NULL` that contradicted the CHECK requiring a correction to keep its target —
+  the two were written into the same file on the same day and could never both
+  hold. The alternatives were rejected on principle: SET NULL orphans a real
+  person's report, CASCADE destroys it. Deletion is now refused clearly and up
+  front instead. **Consequence worth knowing:** a bulk `delete from crews ...`
+  can fail partway once it reaches a referenced row, so delete one row at a time
+  where that is possible, and resolve or reassign the correction first. The
+  refusal is the feature, not an obstacle.
 
 ### "Currently hiring" jobs layer (new feature — decisions)
 
@@ -357,9 +381,11 @@ submissions ever get busy.
 - **Phase 2.8 (Postings as markers): ✅ done 2026-08-14.** Postings are amber
   teardrops, one per town with a count. The amber crew ring and the "hiring
   nearby" crew filter are gone — see the decision above for why.
-- **Agency filter: ✅ done.** `crews.agency` classifies all 829 rows (usfs 582 ·
-  state 82 · nps 36 · local 28 · county 27 · blm 20 · tribal 20 · unknown 17 ·
-  other 10 · bia 5 · fws 2). See `agency_schema.sql` +
+- **Agency filter: ✅ done.** `crews.agency` classified all 829 rows as they
+  stood when it ran (usfs 582 · state 82 · nps 36 · local 28 · county 27 ·
+  blm 20 · tribal 20 · unknown 17 · other 10 · bia 5 · fws 2). **The table is
+  843 since 2026-09-18**, so the 14 recovered crews are not in that breakdown —
+  re-derive it if you need current figures rather than assuming these hold. See `agency_schema.sql` +
   `agency_backfill_dryrun.py` / `_commit.py`; 17 remain honestly `unknown` and
   are hand-correctable.
 - **Hiring filters: ✅ done.** Appointment (Permanent/Temporary), pay grade

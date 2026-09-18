@@ -53,8 +53,8 @@ visitor couldn't discover from a screen of dots. No login was ever added.
   was at `/` until the landing page arrived, 2026-08-18); no login either way.
   Leaflet + OSM; `CircleMarker` pins to avoid bundler icon issues.
 - All crews load from Supabase via the **public key only**. (Was 440 when built;
-  the table is **829** since the Atlas merge — the app reads the table, so the
-  extra pins show automatically.)
+  the table is **843** since the Atlas merge and the 2026-09-18 recovery — the
+  app reads the table, so the extra pins show automatically.)
 - Two symbolize modes: **Region (color)** and **Crew type (symbol)** with a
   matching legend. Four filters (State, Region, Crew type, Housing) as
   multi-select checkbox dropdowns; live "Showing X of N" count.
@@ -194,7 +194,8 @@ republished — it stays gitignored, and so do the review CSVs and caches.
   **proximity (≤5 mi) + forest-name confirmation**. Dry-run by default; `--commit`
   writes, `--rollback` undoes. Before its first write it snapshots every row it
   will touch to `atlas_import_backup.json` (local only).
-- **Result — `crews` is now 829 rows, verified in Supabase:**
+- **Result — `crews` was 829 rows after this merge, verified in Supabase**
+  (843 since the 2026-09-18 recovery — see that section below):
   - **440 curated rows unchanged** in identity, still `source='usfs_official'`.
   - **124 of them enriched** with an Atlas crew name (+ photo/website when the
     Atlas had one). Non-destructive rules: website = Atlas link *or* keep ours
@@ -290,6 +291,9 @@ ten-odd agencies with no way to tell them apart. `crews.agency` fixes that.
   evidence**: `nifc.gov` (interagency) and social links.
 - **Result, verified:** usfs 582 · state 82 · nps 36 · local 28 · county 27 ·
   blm 20 · tribal 20 · **unknown 17** · other 10 · bia 5 · fws 2 = 829.
+  **These are the figures as classified; the table is 843 since 2026-09-18**, so
+  the 14 recovered crews aren't in this breakdown. Re-derive it if you need
+  current numbers.
 - **`tribal` is separate from `bia`, deliberately** — a tribal government is not
   the Bureau of Indian Affairs. Where a row names a nation *and* "BIA" the
   nation wins, because the crew belongs to the community, not the paperwork.
@@ -348,6 +352,68 @@ human approving it.**
   hourly rate limit is also a DoS vector, the sequence grant is broader than
   needed, and reviewed submissions are never cleaned up.
 
+### Atlas stable ids + 14 recovered crews ✅ DONE (2026-09-18)
+
+**The map gained 14 crews that had never had a pin, and the import stopped
+renumbering rows every time it ran.** Two problems that turned out to be linked.
+
+- **14 crews were being swallowed.** The importer let several Atlas placemarks
+  match the *same* curated crew. Each one PATCHed that single row, so the last
+  placemark processed won the crew name — and the earlier ones, counted as
+  "matched", were never inserted as rows of their own. Measured from the import
+  backup: **138 entries but only 124 unique ids**, so 14 placemarks vanished.
+  Nothing looked broken, because every missing crew sits next to one that does
+  show. Now a curated crew is claimed **once**, by its closest placemark, and
+  the runners-up become their own rows.
+
+- **Every re-run gave the Atlas crews new ids.** `crews.id` is auto-numbered by
+  Postgres, and the importer used to delete all 389 Atlas rows and re-insert
+  them from scratch — so each run handed every Atlas crew a brand-new id. Any
+  correction report pointing at one would have been quietly detached from the
+  crew it describes. This showed up as a hard failure rather than silent
+  damage: `--commit` aborted, because deleting a crew someone had reported a
+  correction against tried to null that report's `crew_id`, and a CHECK forbids
+  a correction without a target. **The foreign key and the CHECK contradicted
+  each other** — written in the same file, the same day.
+
+- **The fix: a stable key.** Every placemark now has an `atlas_key` —
+  `md5(name | lat 4dp | lon 4dp)`, unique-indexed and required on Atlas rows.
+  The importer diffs against that key and updates, inserts or removes
+  individual rows instead of wiping and rebuilding. **Ids survive re-runs**, and
+  a run that changes nothing writes nothing. New files:
+  `atlas_stable_ids_migration.sql`, `backfill_atlas_key.py`.
+  **Don't reintroduce delete-all/insert-all.**
+
+- **The contradiction was settled in favour of keeping reports.**
+  `crew_submissions.crew_id` now uses **`ON DELETE RESTRICT`** — chosen over
+  SET NULL (orphans a real person's report) and CASCADE (destroys it). Deleting
+  a crew someone has reported on is now refused clearly and up front. Practical
+  consequence worth remembering: a bulk delete from `crews` can fail partway, so
+  do them one row at a time if referenced rows might be in range.
+
+- **Result, verified in Supabase:** `crews` **829 → 843**; Atlas-tagged rows
+  **389 → 403**; exactly **14 crews recovered**. A dry run immediately afterward
+  reported `unchanged: 403, UPDATE: 0, INSERT: 0, REMOVE: 0`, so re-runs really
+  are no-ops. Checked before any of it: **no correction was pointing at a dead
+  crew id** — this was a live risk closed off, not a loss that had happened.
+
+**Two more bugs surfaced during the work and were fixed at the same time:**
+
+- **An invisible character broke ~55 names.** A non-breaking space lurked in
+  about 55 Atlas placemark names. Phase 2.7 had cleaned these out of the
+  database rows but never updated the *parser*, so the raw KMZ kept producing
+  them. Because the name feeds the new key, the hashes disagreed and an
+  otherwise clean re-run looked like **54 crews needed deleting**. Fixed with
+  `_clean_name()`. Worth keeping in mind: it's the same id-churn failure the key
+  was built to prevent, sneaking back in through the hash input.
+- **The update path was about to erase all 114 re-hosted photos.** The Aug 28
+  fix moved Atlas images to Supabase Storage because the original Google URLs
+  are blocked. Nothing had exercised the update path since, and it would have
+  overwritten every one with the dead Google URL the KMZ still carries. Fixed
+  with `_is_google_hosted()` guards. **Keep them.**
+
+Long-form write-up: `claude/crew-map-handoff.md` in the claude.ai Project.
+
 ### Tooling ✅
 - **github-manager** subagent handles all git ops (never commits secrets, never
   force-pushes main). Used for every commit — don't run git by hand.
@@ -360,13 +426,11 @@ backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
 
 **Two issues surfaced during the Atlas UI work, deliberately deferred:**
 
-- **The Atlas photo URLs are dead — all 114 of them.** Load-tested in a browser:
-  every stored `photo_url` fails. Each contains a literal `*` in the path
-  (`.../hostedimage/m/*/3AE5a_...`), which looks like an unsubstituted
-  placeholder rather than a real image URL — so the bug is probably in
-  `atlas_import.py`'s `gx_media_links` extraction, not in the data. **Low
-  priority on purpose:** `CrewPopup.js` hides an image that fails to load, so
-  popups already look correct. The photo feature is simply inert until fixed.
+- ~~The Atlas photo URLs are dead~~ — **fixed 2026-08-28.** All 114 images were
+  re-hosted to Supabase Storage (`photo_rehost.py`) because the original Google
+  URLs are CORP-blocked, and verified rendering in a browser. **Don't re-extract
+  them from the KMZ** — it still carries the dead Google URLs, which is why the
+  `_is_google_hosted()` guards were added on 2026-09-18.
 - **Nationwide coverage is started but incomplete.** The project's scope is all
   US fire crews in every region. The Atlas gave us our **first ~14 R8/R9/R10
   crews** — a genuine beginning on the Eastern, Southern and Alaska regions, but
@@ -378,10 +442,11 @@ backlog. `TODO_LATER.md` is the authoritative list; these are the highlights.
 
 **Longer-standing backlog, unchanged:**
 
-- **Automate `refresh_jobs.py` via GitHub Actions** (scheduled cron) so the jobs
-  table stays fresh without manual runs. Needs secrets stored as encrypted
-  Actions secrets.
-- **Vercel Web Analytics** (free tier) — add before sharing the link widely.
+- ~~Automate `refresh_jobs.py` via GitHub Actions~~ — **done 2026-08-14**
+  (`.github/workflows/refresh-jobs.yml`, daily at 09:17 UTC). Note GitHub
+  disables scheduled workflows after 60 days of repo inactivity.
+- ~~Vercel Web Analytics~~ — **done.** Deployed in `app/layout.js` and switched
+  on in the Vercel dashboard 2026-09-18, so it is actually collecting.
 - **Housing layer** — the next big build; drops into the layers panel as another
   overlay. Note the 389 Atlas rows have NULL housing, so they'll read as unknown.
 - **Next.js is two majors behind** (14.2.35). `npm audit` reports 2 high

@@ -64,12 +64,16 @@ load it before doing anything.
        narrow POSTINGS only — the crew count never moves. Pay is displayed
        exactly as advertised ($/hr stays $/hr); the annualized figure is for
        sorting and is never shown.
-   - The AGENCY filter is DONE. crews.agency classifies all 829 rows (usfs 582,
+   - The AGENCY filter is DONE. crews.agency classifies the 829 rows that
+     existed when it ran (usfs 582,
      state 82, nps 36, local 28, county 27, blm 20, tribal 20, unknown 17,
      other 10, bia 5, fws 2). 'tribal' is deliberately separate from 'bia'; FWS
      and USFWS are ONE agency. The 17 'unknown' are shown honestly as a
      checkbox and are hand-correctable in Supabase — every write is guarded by
-     agency=eq.unknown so your corrections survive re-runs.
+     agency=eq.unknown so your corrections survive re-runs. NOTE: the table is
+     843 rows since 2026-09-18 — the 14 crews recovered that day postdate this
+     breakdown, so the per-agency numbers above no longer sum to the total.
+     Re-derive them if you need current figures; don't assume.
    - Phase 2.6 "Wildland Fire Handcrew Atlas" merge is DONE and verified in
      Supabase. Permission to USE the Atlas data is now SECURED (it was pending
      before) — but the source KMZ is still NOT republished; it, the review CSVs,
@@ -80,14 +84,15 @@ load it before doing anything.
        contributions need no further migration).
      * atlas_import.py folded the KMZ in by proximity (<=5 mi) + forest-name
        confirmation. Dry-run by default; --commit writes; --rollback undoes.
-     * RESULT: `crews` is now 829 rows. The 440 curated rows are unchanged
+     * RESULT: `crews` is now 843 rows (829 until 2026-09-18). The 440 curated rows are unchanged
        (still usfs_official); 124 of them were ENRICHED with an Atlas crew name
        (+ photo/website where the Atlas had one) — curated values are never
        overwritten and the website is never blanked. 389 NEW rows were added
        tagged source='handcrew_atlas', with crew type extracted from the crew
        names and state reverse-geocoded from the coordinates. Those new rows
        have NULL region/district/town/housing (the Atlas doesn't have them);
-       the pins still show.
+       the pins still show. (389 became 403 on 2026-09-18 — see the id-churn
+       entry below.)
      * Crew-type extraction introduced two NEW labels: "Suppression Module"
        and "Fire Effects".
    - The Atlas UI catch-up is DONE: popups are titled with the real crew_name
@@ -117,6 +122,42 @@ load it before doing anything.
      local scripts use the sb_secret_ key, and the old legacy keys are DISABLED.
    - The control panel was refactored into collapsible LAYERS (Crews = base,
      Hiring = toggleable overlay) — built so a Housing layer is a clean add.
+
+   - ATLAS IMPORT IS NOW UPSERT-BASED, AND 14 LOST CREWS WERE RECOVERED
+     (2026-09-18). Two linked problems, both fixed:
+     * `build_plan` used to let several placemarks match the SAME curated crew;
+       each PATCHed that one row, so the last one won the name and the earlier
+       ones were never inserted. 14 real crews had no row and no pin. Fixed:
+       a crew is claimed once, by its CLOSEST placemark; runners-up become
+       their own rows.
+     * `crews.id` is `generated always as identity`, and the import used to
+       DELETE every handcrew_atlas row and re-insert them — handing every Atlas
+       crew a NEW id on every run, which would silently detach any correction
+       pointing at one. Fixed with a stable `crews.atlas_key`
+       (md5(name|lat 4dp|lon 4dp), unique-indexed, CHECK-required on Atlas
+       rows); the script now UPSERTs by that key.
+       **DO NOT reintroduce delete-all/insert-all.**
+       Files: atlas_stable_ids_migration.sql, backfill_atlas_key.py.
+       atlas_key() is defined ONCE in atlas_import.py; backfill_atlas_key.py
+       IMPORTS it so the two can't drift (same pattern as
+       region_backfill_commit.py importing the matcher). Don't replace that
+       import with a second copy of the hash.
+     * crew_submissions.crew_id now has an ON DELETE RESTRICT foreign key to
+       crews.id, replacing an ON DELETE SET NULL that CONTRADICTED the CHECK
+       requiring a correction to keep its target. Consequence: a bulk
+       `delete from crews ...` can fail partway once it hits a crew someone has
+       reported a correction against. Delete one row at a time if that's
+       possible, and resolve the correction first. The refusal is correct.
+     * RESULT: `crews` 829 -> 843; handcrew_atlas rows 389 -> 403. A dry run
+       straight after showed `unchanged: 403, UPDATE: 0, INSERT: 0, REMOVE: 0`,
+       so re-runs are genuinely no-ops. Zero corrections were pointing at a
+       dead crew id at the time — a live risk closed off, not a realized loss.
+     * Two bugs found during that work, also fixed in atlas_import.py: a
+       non-breaking space in ~55 placemark names (Phase 2.7 cleaned the DB but
+       never the PARSER, so hashes disagreed and a clean re-run looked like 54
+       crews needed removing) -> `_clean_name()`; and the update path was about
+       to overwrite all 114 re-hosted photo URLs with the dead Google ones the
+       KMZ still carries -> `_is_google_hosted()` guards. KEEP BOTH.
 
    - PUBLIC CREW SUBMISSIONS (Phase 3 v1) are LIVE as of 2026-08-19. Anyone
      can submit a crew from the site. Schema is applied, the env flag is set
@@ -156,22 +197,23 @@ load it before doing anything.
       accepted. Until it lands, thin regions should read in the UI as "still
       building this out," never as "no crews here."
 
-   b) FIX THE DEAD ATLAS PHOTO URLS. All 114 stored photo_url values fail to
-      load — verified by load-testing them in a browser. Every one contains a
-      literal `*` in the path (.../hostedimage/m/*/3AE5a_...), which looks like
-      an unsubstituted placeholder, so the bug is probably in atlas_import.py's
-      gx_media_links extraction rather than in the data. Low urgency because
-      CrewPopup.js hides an image that fails, so popups already look right —
-      the photo feature is just inert. Investigate the extraction, re-run the
-      import for photo_url only, and don't regress the graceful-hide behavior.
+   b) DONE (2026-08-28) — the Atlas photos are FIXED. Nothing to do here.
+      The original Google-hosted URLs are CORP-blocked, so all 114 images were
+      re-hosted to Supabase Storage (photo_rehost.py) and verified rendering in
+      a browser. DO NOT "re-extract" them from the KMZ — the KMZ still carries
+      the dead Google URLs, and re-importing them is exactly the regression the
+      `_is_google_hosted()` guards added 2026-09-18 exist to prevent.
+      CrewPopup.js still hides an image that fails to load; keep that.
 
    c) DONE (2026-08-14) — refresh_jobs.py is automated. Nothing to do here.
       Only relevant if the hiring data ever looks stale: GitHub DISABLES
       SCHEDULED WORKFLOWS AFTER 60 DAYS of repo inactivity, so check the
       Actions tab before debugging anything else.
 
-   d) (Backlog) Add Vercel Web Analytics (free tier) before sharing the link
-      widely, so we can tell whether anyone actually uses it.
+   d) DONE — Vercel Web Analytics is deployed (@vercel/analytics in
+      app/layout.js) and was switched on in the Vercel dashboard 2026-09-18, so
+      it is actually collecting now. Page views and referrers only; no cookies,
+      no cross-site tracking, so no consent banner.
 
    e) (Future big build) Add a Housing layer to the layers panel. The panel was
       built as reusable LayerSections so this is an addition, not a rewrite.

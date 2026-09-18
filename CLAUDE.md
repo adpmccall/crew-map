@@ -11,7 +11,7 @@ changed and is non-negotiable.
 
 What is actually live today:
 
-- **The crew map** (`/map`) — **829 crews** as pins, narrowed by **state**,
+- **The crew map** (`/map`) — **843 crews** as pins, narrowed by **state**,
   **region**, **crew type**, **housing**, and **agency**. Click a pin for that
   crew's details. This is still the CORE product; everything else is icing.
 - **Not Forest Service only — not since the Atlas merge.** `crews` spans 11
@@ -75,9 +75,10 @@ Source file: **`crews_cleaned.json`** — a JSON array of **440** Forest Service
 crew records (the spec said "~440"; it's exactly 440).
 
 **⚠️ 440 is the SOURCE FILE, not the live dataset.** The Supabase `crews` table
-holds **829 rows**: the original 440 (still `source='usfs_official'`) plus 389
+holds **843 rows**: the original 440 (still `source='usfs_official'`) plus 403
 added by the Handcrew Atlas merge, and it grows again as public submissions are
-approved. Every count in this section — 440 records, 6 regions, 16 states,
+approved. (It was 829/389 until 2026-09-18, when re-running the fixed importer
+recovered 14 crews an earlier dedup bug had swallowed.) Every count in this section — 440 records, 6 regions, 16 states,
 371 websites — describes `crews_cleaned.json` as it was imported, and is
 deliberately left as a record of that file. For what's actually on the map,
 query the table or see `SESSION_SYNOPSIS.md`.
@@ -197,6 +198,44 @@ A standalone, beginner-friendly Python script (run on the user's own machine,
 
 If you change the data fields, keep this script in sync (it reads `town`,
 `state`, and writes `latitude`/`longitude`).
+
+### `atlas_import.py` — UPSERT, never delete-and-reinsert
+
+**Changed 2026-09-18. Don't undo this.** The script used to delete every
+`source='handcrew_atlas'` row and re-insert them from scratch. `crews.id` is
+`generated always as identity`, so that handed every Atlas crew a brand-new id
+on each run — which silently broke any correction report pointing at one.
+
+Now each placemark carries a stable **`atlas_key`**: `md5(name|lat 4dp|lon 4dp)`,
+unique-indexed, and required by CHECK on `handcrew_atlas` rows. The importer
+diffs against that key and UPDATEs, INSERTs or REMOVEs individual rows, so
+**ids survive re-runs** and a run that changes nothing writes nothing.
+
+- **Never reintroduce delete-all/insert-all**, however much simpler it looks.
+- `atlas_key()` lives in `atlas_import.py` and **`backfill_atlas_key.py`
+  imports it** (`from atlas_import import atlas_key`) rather than
+  reimplementing the formula, so the two cannot drift. That's deliberate —
+  keep it that way, because a second copy of the hash is exactly how the id
+  churn would come back.
+- Placemark names need `_clean_name()` (non-breaking spaces and CDATA
+  artifacts). An uncleaned name hashes to a different key, which reads as
+  "this crew vanished from the Atlas."
+- Atlas photos were re-hosted to Supabase Storage on 2026-08-28 because the
+  original Google URLs are CORP-blocked. The update path is guarded by
+  `_is_google_hosted()` so a re-run can't overwrite a re-hosted URL with the
+  dead Google one the KMZ still carries. **Keep those guards.**
+
+### Deleting crews: the FK is RESTRICT
+
+`crew_submissions.crew_id` has an **`ON DELETE RESTRICT`** foreign key to
+`crews.id` (set 2026-09-18, replacing an `ON DELETE SET NULL` that contradicted
+the CHECK requiring a correction to keep its target).
+
+Practical consequence: **a bulk `delete from crews ...` can fail partway** the
+moment it reaches a crew someone has reported a correction against. If a delete
+might touch referenced rows, do them **one row at a time** so one refusal
+doesn't abort the batch, and resolve or reassign the correction first. The
+refusal is correct behaviour — it's protecting a real person's report.
 
 ## Build order — ship the simplest thing first
 

@@ -3,63 +3,67 @@
 Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 `TODO_LATER.md` for the deferred backlog.
 
-## DATA LOSS — ~14 Atlas crews had no pin (dedup bug) — CODE FIXED 2026-09-18, NOT YET APPLIED
+## Atlas id churn + the ~14 missing crews — ✅ DONE 2026-09-18 (verified in Supabase)
 
-Moved up from `TODO_LATER.md` because it is now active work. **The code fix is
-written; the database has not been changed.** Until the import is re-run with
-`--commit`, the 14 crews are still missing from the map.
+Two problems, one fix. The map gained **14 crews that had never had a pin**, and
+the import stopped renumbering rows every time it ran.
 
-**The bug.** `build_plan` in `atlas_import.py` let several Atlas placemarks all
-match the *same* curated crew. Every match PATCHed that one row, so the last
-placemark processed won the `crew_name` — and the earlier ones were recorded as
-"matched", which meant they were **never inserted as rows of their own**.
+**Problem 1 — 14 crews swallowed.** `build_plan` let several Atlas placemarks
+match the *same* curated crew. Each match PATCHed that one row, so the last
+placemark processed won the `crew_name` and the earlier ones — counted as
+"matched" — were never inserted as rows of their own. Measured from
+`atlas_import_backup.json`: **138 entries but only 124 unique ids**, so 138
+placemarks landed on 124 crews and 14 vanished (3 placemarks each on ids 144,
+350, 402; 2 each on ids 34, 54, 110, 162, 163, 356, 416, 418 — 3x2 + 8x1 = 14).
 
-**Measured, not guessed.** `atlas_import_backup.json` holds **138 entries but
-only 124 unique ids**, so 138 placemarks landed on 124 crews and 14 vanished.
-(That is also where the old "138 enriched" figure came from: it counted matches,
-not rows. The real number of enriched rows is 124.) The 11 crews that absorbed
-extras: 3 placemarks each on ids 144, 350, 402; 2 each on ids 34, 54, 110, 162,
-163, 356, 416, 418. That is 3x2 + 8x1 = 14 lost.
+**Problem 2 — every re-run renumbered the Atlas.** `crews.id` is
+`generated always as identity`, and the import deleted all `handcrew_atlas` rows
+then re-inserted them. Every Atlas crew therefore got a **new id on every run**,
+which would silently detach any correction report pointing at one. This surfaced
+as a hard failure: `--commit` aborted with a `23514` CHECK violation, because
+deleting a referenced crew fired `ON DELETE SET NULL` on
+`crew_submissions.crew_id` and the correction-shape CHECK forbids a correction
+without a target. **The two constraints contradicted each other** — written in
+the same file, the same day.
 
-- [x] **Fixed `build_plan` so a curated crew can be claimed only once.** Two
-      passes: collect every qualifying claim, then award each crew to its
-      CLOSEST placemark and drop the runners-up into the `new` pile, where they
-      get inserted as `source='handcrew_atlas'` like any other Atlas-only crew.
-      Ties break on Atlas order so re-runs are deterministic.
-      **Per-placemark matching is deliberately unchanged** — still the single
-      nearest crew, gated on radius + forest agreement. Widening it to "any crew
-      in range" would invent matches the old code never made and rewrite live
-      rows for reasons unrelated to this bug.
-      Verified offline on synthetic data reproducing the real shape (3
-      placemarks on one crew): before, 3 matches onto 1 id with 2 swallowed;
-      after, 1 match and 2 new rows, with every placemark accounted for.
+- [x] **`build_plan` claims each curated crew only once** (closest placemark
+      wins; runners-up become their own rows). Ties break on Atlas order, so
+      re-runs are deterministic. Per-placemark matching deliberately unchanged.
+- [x] **Stable identity: `crews.atlas_key`** — `md5(name|lat 4dp|lon 4dp)`,
+      unique-indexed, required via CHECK on `handcrew_atlas` rows.
+      `atlas_stable_ids_migration.sql` + `backfill_atlas_key.py`.
+- [x] **`atlas_import.py` rewritten to UPSERT by `atlas_key`** instead of
+      delete-all/insert-all. Ids now survive re-runs; a run that changes nothing
+      writes nothing.
+- [x] **`crew_submissions.crew_id` → `ON DELETE RESTRICT`**, resolving the
+      FK/CHECK contradiction. Chosen over SET NULL (would orphan real reports)
+      and CASCADE (would destroy them). A delete that would strand a correction
+      is now refused clearly, up front.
+- [x] **Ran `atlas_import.py --commit`** — the first production run since the
+      dedup fix landed in code. **Recovered exactly 14 crews** as new rows.
+      `crews` **829 → 843**; `handcrew_atlas` rows **389 → 403**.
+- [x] **Verified idempotent.** A dry run immediately after the commit reported
+      `unchanged: 403, UPDATE: 0, INSERT: 0, REMOVE: 0`.
+- [x] **Checked before touching anything: zero corrections pointed at a dead
+      crew id.** This was a live risk closed off, not a realized data loss.
 
-- [ ] **OWNER STEP: dry run first.** `python3 atlas_import.py`
-      **Expected:** `ENRICH (confirmed matches)` drops from **138 to 124**, and
-      `ADD (Atlas-only new crews)` rises by **exactly 14**. Nothing is written.
-- [ ] **OWNER STEP: apply it.** `python3 atlas_import.py --commit`
-      `crews` should go from 829 to **843**. Re-runs are safe: the script drops
-      all `source='handcrew_atlas'` rows first and rebuilds them.
-- [ ] **OWNER STEP: spot-check a recovered crew on the live map** — pick one of
-      the contested bases (Mormon Lake, Springville or Union) and confirm the
-      second and third crews now have their own pins.
+**Two more bugs surfaced during the work, both fixed in `atlas_import.py`:**
 
-**⚠️ DO NOT move `atlas_import_backup.json` aside to "get a clean backup".**
-`run()` writes that file only `if not os.path.exists(BACKUP)`, and it captures
-whatever the table looks like at that moment. Renaming or deleting it and
-re-running `--commit` would write a new "pre-Atlas" snapshot taken from the
-**already-enriched** table, destroying the real rollback point. The dry-run
-counts above verify the fix without writing anything, which is why they are the
-check rather than the backup's shape. (The current backup's 11 duplicated ids
-hold identical values, so `--rollback` remains correct as it stands.)
+- [x] **Non-breaking space (`\xa0`) in ~55 placemark names.** Phase 2.7 cleaned
+      these out of the database rows but never updated the *parser*, so the raw
+      KMZ still produced them. Since the name feeds `atlas_key`, the hashes
+      disagreed and a clean re-run looked like **54 crews needed removing**.
+      Fixed with `_clean_name()` in `load_atlas()`. This is exactly the id-churn
+      failure `atlas_key` exists to prevent, sneaking back in through the hash
+      input — keep name cleaning and key computation in step.
+- [x] **The update path was about to wipe all 114 re-hosted photo URLs.** The
+      2026-08-28 fix moved Atlas images to Supabase Storage because the original
+      Google URLs are CORP-blocked, but nothing had exercised the update path
+      since, so it would have overwritten every one with the dead Google URL the
+      KMZ still carries. Fixed with `_is_google_hosted()` guards in
+      `enrich_body()` and `plan_atlas_upsert()`. **Keep those guards.**
 
-**⚠️ Expect `crew_name` to change on up to 11 rows.** Those crews previously
-took their name from whichever placemark happened to be processed last; they now
-take it from the closest one. More defensible, but it is a live-data change, so
-look at the dry run before committing.
-
-**Severity:** low urgency, real loss. Each missing crew is co-located with one
-that does show, so nothing looks broken — which is exactly why it went unnoticed.
+**Long-form write-up:** `claude/crew-map-handoff.md` in the claude.ai Project.
 
 ## BUG — corrections emailed as "new crew submission" — ✅ FIXED 2026-09-18 (verified live)
 
@@ -544,7 +548,8 @@ republished — it, the review CSVs, and `state_geocache.json` /
 - [x] **Import:** `atlas_import.py` — folds the 527-placemark KMZ in by proximity
       (≤5 mi) + forest-name confirmation. Dry-run by default, `--commit` writes,
       `--rollback` undoes; snapshots pre-merge state to `atlas_import_backup.json`.
-- [x] **Ran + verified: `crews` is now 829 rows.**
+- [x] **Ran + verified: `crews` reached 829 rows** (843 since the 2026-09-18
+      recovery — see the top of this file):
       - 440 curated rows unchanged, still `source='usfs_official'`
       - 124 of them **enriched** with an Atlas crew name (+ photo/website where
         the Atlas had one). Website = Atlas link OR keep ours (never blanked);
