@@ -19,8 +19,8 @@ WHAT IT DOES (see MERGE_PLAN.md for the full plan and the decisions behind it)
         - these rows KEEP source='usfs_official' (they're still our records,
           just enriched).
 
-    * ADD the crews only the Atlas has (far from any crew, or near one but a
-      different forest — e.g. non-USFS TNC/NPS/BLM/BIA/state crews) as NEW rows
+    * ADD/UPDATE the crews only the Atlas has (far from any crew, or near one but
+      a different forest — e.g. non-USFS TNC/NPS/BLM/BIA/state crews) as rows
       tagged source='handcrew_atlas', carrying name, forest, notes, website,
       photo, coordinates, the extracted crew-type RESOURCE label (blank when the
       name/description gives no confident type), and a STATE reverse-geocoded from
@@ -33,23 +33,55 @@ WHAT IT DOES (see MERGE_PLAN.md for the full plan and the decisions behind it)
       WFM/Module->WFM, bare HC / T2IA / '/hand-crews'->Type 2/2IA Handcrew,
       Fuels->Fuels, Job Corps->Job Corps crew, Fire Effects->Fire Effects (new).
 
-SAFE, REVERSIBLE, IDEMPOTENT
+SAFE, REVERSIBLE, IDEMPOTENT — genuinely, now, on the ADD/UPDATE side too
   - DEFAULT IS A DRY RUN. Running with no flags only PRINTS what it would do and
     writes NOTHING. You must pass --commit to actually write.
-  - Re-runnable: --commit deletes the whole source='handcrew_atlas' group and
-    re-inserts it, and re-applies the (idempotent) enrichment, so running twice
-    leaves the same result — no duplicates.
+  - Re-runnable, by UPSERT, not delete-all/insert-all: each Atlas placemark gets
+    a stable atlas_key = md5(name|lat 4dp|lon 4dp) (see atlas_key() below). A
+    placemark whose key already exists on a crews row PATCHES that row IN PLACE
+    — same `id` — instead of being deleted and reinserted. A placemark with no
+    matching key is INSERTed as a genuinely new row. An existing Atlas row whose
+    key no longer appears in the parsed KMZ is a candidate for removal.
+    -- REQUIRES atlas_stable_ids_migration.sql to have been run first (adds the
+       `atlas_key` column and a RESTRICT foreign key from crew_submissions.crew_id
+       -> crews.id). Without that migration this script will fail loudly trying
+       to read/write a column that doesn't exist yet — on purpose, rather than
+       silently falling back to the old delete-all behavior.
+    -- WHY THIS MATTERS: the OLD version of this script deleted the entire
+       source='handcrew_atlas' group and reinserted it on every --commit, which
+       handed every one of the ~389 Atlas crews a brand-new serial `id` on every
+       run — whether or not the source KMZ had actually changed. Any
+       crew_submissions row (a correction report) pointing at one of those ids
+       was silently orphaned by the NEXT unrelated re-run, not just by a change
+       to the crew it targeted. This version only ever changes an id when a
+       placemark is genuinely new or genuinely gone from the source.
+    -- REMOVALS ARE ONE ROW AT A TIME, ON PURPOSE. With the RESTRICT foreign key
+       in place, a crew that still has an open submission/correction against it
+       CANNOT be deleted — the delete is refused, reported, and the row is left
+       in place rather than the whole run failing or the reference going stale.
+       (A single bulk DELETE would instead fail ALL-OR-NOTHING: one blocked row
+       would silently block every other legitimate removal in the same batch.)
+  - The ENRICH side (curated crews) was already id-stable — it PATCHes existing
+    rows by their existing `id` and always has. Nothing changes there.
   - Before its first write, it saves the pre-Atlas state of every row it will
     enrich to  atlas_import_backup.json  (kept, not overwritten on re-runs).
-  - --rollback undoes EVERYTHING: deletes the Atlas additions and restores the
-    enriched rows from that backup file.
+  - --rollback undoes the merge: removes Atlas rows (one at a time, same RESTRICT
+    handling as above — a blocked row is reported and left in place, not silently
+    kept or silently forced through) and restores the enriched rows from that
+    backup file.
 
-  Rollback the additions by hand (SQL), any time:
+  Rollback the additions by hand (SQL) — NOTE this is now subject to the same
+  RESTRICT foreign key, so it may refuse rows with open corrections:
       delete from crews where source = 'handcrew_atlas';
 
 BEFORE YOU RUN
-  1. Run atlas_schema.sql in the Supabase SQL Editor first (adds the columns).
-  2. Same two secrets as import_to_supabase.py, read from the environment so
+  1. Run atlas_schema.sql in the Supabase SQL Editor first (adds the columns),
+     if you haven't already (it's from the original merge, additive+idempotent).
+  2. Run atlas_stable_ids_migration.sql STEP 1, then backfill_atlas_key.py
+     --commit, then atlas_stable_ids_migration.sql STEP 3 — in that order, once,
+     before the first run of THIS version of the script. (Already-done ==
+     skip straight to step 3 below.)
+  3. Same two secrets as import_to_supabase.py, read from the environment so
      they're never written into this file or committed:
        SUPABASE_URL              -> Project Settings -> API -> "Project URL"
        SUPABASE_SERVICE_ROLE_KEY -> the SECRET key (sb_secret_... or legacy)
@@ -64,7 +96,7 @@ HOW TO RUN (macOS/Linux, in this folder)
       python3 atlas_import.py --rollback   # undoes it (additions + enrichment)
 """
 
-import json, os, re, sys, time, zipfile, math
+import hashlib, json, os, re, sys, time, zipfile, math
 from collections import Counter
 
 try:
@@ -103,6 +135,17 @@ if KEY.startswith("eyJ"):
     HEADERS["Authorization"] = f"Bearer {KEY}"
 
 
+class RestrictedDeleteError(Exception):
+    """Raised when Postgres refuses to delete a crews row because a foreign
+    key (crew_submissions.crew_id, ON DELETE RESTRICT) still points at it.
+    Callers catch this per-row so one blocked crew never aborts the rest of
+    a batch — see the module docstring for why that matters."""
+    def __init__(self, row_id, detail):
+        self.row_id = row_id
+        self.detail = detail
+        super().__init__(f"crew id={row_id} is still referenced: {detail}")
+
+
 def raise_on_error(r, action):
     """Print Supabase's full RESPONSE (never our request headers, so the secret
     key is never shown) and stop, on any HTTP error."""
@@ -117,6 +160,31 @@ def raise_on_error(r, action):
     sys.exit(1)
 
 
+# --- stable identity for one Atlas placemark ------------------------------------
+
+def atlas_key(name, lat, lon):
+    """The identity atlas_import.py uses to recognize 'this is the same
+    placemark as last time', across re-runs and across --commit's delete/
+    insert boundary. Deliberately EXACT, not fuzzy: name + coordinate rounded
+    to 4 decimal degrees (~11m) — the same string a KMZ re-export of an
+    UNCHANGED placemark will always produce.
+
+    TRADE-OFF, STATED PLAINLY: if the Atlas maintainer edits a placemark's
+    name or nudges its pin, this key changes, and the next --commit will see
+    it as one crew removed + one crew added (new id) rather than an in-place
+    update. That's accepted — it only happens when the source genuinely
+    changed, which is rare, versus the old bug where EVERY crew got a new id
+    on EVERY run regardless of whether anything changed. A renamed/moved
+    placemark arguably deserves a fresh look anyway.
+
+    MUST MATCH backfill_atlas_key.py's computation exactly — that script
+    imports this function directly rather than reimplementing the formula, so
+    the two can never drift apart.
+    """
+    raw = f"{(name or '').strip()}|{round(lat, 4)}|{round(lon, 4)}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+
 # --- parsing the Atlas ---------------------------------------------------------
 
 def _tag(block, tag):
@@ -129,6 +197,18 @@ def _real_url(desc):
         if not re.search(r"google|gstatic|hostedimage|mymaps|ggpht", u):
             return u.rstrip(".,")
     return ""
+
+_GOOGLE_HOST_RE = re.compile(r"google|gstatic|hostedimage|mymaps|ggpht", re.I)
+
+def _is_google_hosted(url):
+    """True for a Google-served URL — the ones photo_rehost.py (2026-08-28)
+    exists specifically to get AWAY from, because Google serves them with a
+    cross-origin-resource-policy header that blocks them in every real
+    browser (see TODO_LATER.md; curl can't detect it, which is exactly how
+    that bug hid the first time). Used to make sure a routine Atlas re-sync
+    never overwrites an already-rehosted photo_url (pointing at our own
+    Supabase Storage) with this kind of URL again."""
+    return bool(url) and bool(_GOOGLE_HOST_RE.search(url))
 
 def _photo(block):
     """The one hosted photo, if any (Atlas stores it under gx_media_links)."""
@@ -189,6 +269,31 @@ def label_for(a):
         return "Type 2/2IA Handcrew"
     return None
 
+def _clean_name(raw):
+    """Normalize a placemark's <name> EXACTLY the way the one-time Phase 2.7
+    pass normalized the same text after it was already sitting in the
+    database: strip a CDATA wrapper if present, and collapse any run of
+    whitespace -- most commonly Google's non-breaking space (U+00A0),
+    which Python's \\s matches same as a normal space -- down to one plain
+    space.
+
+    WHY THIS EXISTS: without it, a KMZ placemark named e.g.
+    'Yellowstone\\xa0WFM' (real example, confirmed via
+    diagnose_by_location.py) parses to a DIFFERENT atlas_key than the
+    ALREADY-CLEANED 'Yellowstone WFM' sitting in `crews.crew_name` -- so
+    every one of the ~55 placemarks Phase 2.7 cleaned once would look like
+    it vanished from the source on every future re-run, get REMOVEd, and
+    get immediately re-INSERTed under a brand-new id. That's the exact
+    id-churn bug atlas_key was built to stop, sneaking back in through a
+    single un-normalized field. Confirmed empirically before this fix
+    landed: 54 of the ~55 originally-cleaned rows hit this on a real re-run.
+    """
+    if raw is None:
+        return None
+    s = re.sub(r"<!\[CDATA\[|\]\]>", "", raw)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s or None
+
 def load_atlas():
     with zipfile.ZipFile(KMZ) as z:
         name = next((n for n in z.namelist() if n.endswith(".kml")), None)
@@ -205,7 +310,7 @@ def load_atlas():
         desc = _tag(pm, "description")
         forest, notes = _forest_and_notes(desc)
         rec = {
-            "name": _tag(pm, "name") or None,
+            "name": _clean_name(_tag(pm, "name")),
             "desc": _clean_desc(desc),        # full text, for crew-type tokens
             "forest": forest,
             "notes": notes,
@@ -310,10 +415,25 @@ def fetch_curated_crews():
     raise_on_error(r, "fetching current crews")
     return r.json()
 
-def delete_atlas_additions():
-    r = requests.delete(REST, headers={**HEADERS, "Prefer": "return=minimal"},
-                        params={"source": "eq.handcrew_atlas"}, timeout=60)
-    raise_on_error(r, "deleting existing Atlas additions")
+def fetch_atlas_rows():
+    """Existing source='handcrew_atlas' rows, keyed by atlas_key, so a fresh
+    parse of the KMZ can be diffed against what's already in the table instead
+    of blindly deleting and reinserting everything."""
+    r = requests.get(REST, headers=HEADERS, params={
+        "select": "id,atlas_key,crew_name,forest,notes,website,photo_url,"
+                  "resource,state,latitude,longitude",
+        "source": "eq.handcrew_atlas", "limit": 100000,
+    }, timeout=60)
+    raise_on_error(r, "fetching existing Atlas rows")
+    rows = r.json()
+    missing_key = [row["id"] for row in rows if not row.get("atlas_key")]
+    if missing_key:
+        print(f"ERROR: {len(missing_key)} existing handcrew_atlas row(s) have no "
+              f"atlas_key (ids: {missing_key[:10]}{'...' if len(missing_key) > 10 else ''}).")
+        print("  Run atlas_stable_ids_migration.sql STEP 1 and backfill_atlas_key.py")
+        print("  --commit before using this version of atlas_import.py.")
+        sys.exit(1)
+    return rows
 
 def patch_row(row_id, body):
     r = requests.patch(REST, headers={**HEADERS, "Prefer": "return=minimal"},
@@ -327,12 +447,27 @@ def insert_rows(rows):
                           data=json.dumps(batch), timeout=60)
         raise_on_error(r, f"inserting new rows {start + 1}-{start + len(batch)}")
 
+def delete_row(row_id):
+    """Delete ONE crews row. Raises RestrictedDeleteError if Postgres refuses
+    because a crew_submissions row still references it (the RESTRICT foreign
+    key from atlas_stable_ids_migration.sql) — callers handle that per row so
+    it never aborts a whole batch. Any OTHER failure still stops the script,
+    same as raise_on_error everywhere else."""
+    r = requests.delete(REST, headers={**HEADERS, "Prefer": "return=minimal"},
+                        params={"id": f"eq.{row_id}"}, timeout=30)
+    if r.ok:
+        return
+    if r.status_code == 409 or "23503" in r.text or "foreign key" in r.text.lower():
+        raise RestrictedDeleteError(row_id, r.text.strip())
+    raise_on_error(r, f"deleting crew id={row_id}")
 
-# --- plan: decide matches vs new (pure, no writes) -----------------------------
+
+# --- plan: decide matches vs new vs update (pure, no writes) -------------------
 
 def build_plan(atlas, crews):
     """Decide which Atlas placemarks enrich an existing curated crew, and which
-    become brand-new rows. Pure: works out a plan, writes nothing.
+    are Atlas-sourced crews in their own right. Pure: works out a plan, writes
+    nothing.
 
     ONE CURATED CREW CAN BE CLAIMED BY ONLY ONE PLACEMARK.
     Several Atlas placemarks often sit inside the match radius of the same
@@ -396,7 +531,12 @@ def enrich_body(a, crew):
     body = {"crew_name": a["name"]}
     if a["website"]:
         body["website"] = a["website"]     # atlas present -> prefer/fill with atlas
-    if a["photo_url"]:
+    # Never let a routine re-sync overwrite an already-rehosted photo (see
+    # _is_google_hosted's docstring) with the raw Google URL the KMZ still
+    # carries. Only take the Atlas photo when this crew doesn't already have
+    # a working one on file (blank, or still an un-rehosted Google URL).
+    if a["photo_url"] and (_blank(crew.get("photo_url"))
+                            or _is_google_hosted(crew.get("photo_url"))):
         body["photo_url"] = a["photo_url"]
     if a["label"] and _blank(crew.get("resource")):
         body["resource"] = a["label"]      # fill-only-if-blank; never overwrite
@@ -412,16 +552,89 @@ def new_row(a):
         "state": a.get("derived_state"),     # reverse-geocoded from coords (may be None)
         "latitude": a["latitude"], "longitude": a["longitude"],
         "source": "handcrew_atlas",
+        "atlas_key": atlas_key(a["name"], a["latitude"], a["longitude"]),
     }
+
+# Fields atlas_import.py owns on an Atlas-sourced row. Used to tell "matched
+# by key AND already identical" apart from "matched by key but content moved
+# on" — atlas_key alone only proves it's the same PLACEMARK, not that nothing
+# about it changed (a website could've been added, a forest name corrected).
+_ATLAS_FIELDS = ("crew_name", "forest", "notes", "website", "photo_url",
+                  "resource", "state", "latitude", "longitude")
+
+def _row_differs(existing, desired):
+    return any(existing.get(f) != desired.get(f) for f in _ATLAS_FIELDS)
+
+def plan_atlas_upsert(new_records, existing_rows):
+    """Diff freshly-parsed Atlas placemarks against what's already in `crews`,
+    by atlas_key. Returns (to_update, to_insert, to_remove, unchanged_count):
+      to_update  — [(existing crews.id, desired row body)] — same id, PATCHed,
+                    ONLY when some field actually differs (see _row_differs) —
+                    a placemark that's genuinely identical to what's already
+                    stored is counted in unchanged_count instead and never
+                    touched at all.
+      to_insert  — [row body] — genuinely new placemarks, get a new id
+      to_remove  — [existing row dict] — no placemark in this parse still
+                    claims this key (removed/renamed upstream), candidate for
+                    deletion, handled one row at a time by the RESTRICT FK.
+      unchanged_count — matched AND byte-identical; zero writes for these.
+    This is the whole fix: the OLD code's equivalent of this function was
+    "delete everything, then insert everything" — which is `to_remove = all
+    existing rows` and `to_insert = all new rows`, EVERY run, regardless of
+    whether anything changed. Here, a placemark that's exactly what's already
+    on file produces neither a write nor an id change.
+
+    PHOTO PROTECTION: an UPDATE never overwrites an already-rehosted photo
+    (see _is_google_hosted) with the raw Google URL the KMZ still carries —
+    same reasoning as enrich_body(). This only matters for to_update (an
+    existing row to preserve); a fresh to_insert has nothing to protect.
+    """
+    by_key = {row["atlas_key"]: row for row in existing_rows}
+    seen_keys = set()
+    to_update, to_insert, unchanged = [], [], 0
+    for a in new_records:
+        row = new_row(a)
+        seen_keys.add(row["atlas_key"])
+        existing = by_key.get(row["atlas_key"])
+        if existing:
+            if row["photo_url"] and not _blank(existing.get("photo_url")) \
+                    and not _is_google_hosted(existing.get("photo_url")):
+                row["photo_url"] = existing["photo_url"]   # keep the rehosted one
+            if _row_differs(existing, row):
+                to_update.append((existing["id"], row))
+            else:
+                unchanged += 1
+        else:
+            to_insert.append(row)
+    to_remove = [row for row in existing_rows if row["atlas_key"] not in seen_keys]
+    return to_update, to_insert, to_remove, unchanged
 
 
 # --- the three modes -----------------------------------------------------------
 
 def do_rollback():
     print("ROLLBACK — undoing the Atlas merge.\n")
-    removed = count_where("handcrew_atlas")
-    delete_atlas_additions()
-    print(f"  deleted {removed} rows tagged source='handcrew_atlas' (the additions).")
+    atlas_rows = fetch_atlas_rows()
+    removed, blocked = 0, []
+    # One at a time, ON PURPOSE (see module docstring): a single bulk DELETE
+    # would be all-or-nothing under the RESTRICT foreign key, so one crew with
+    # an open correction would silently block every other legitimate removal
+    # in the same statement. This way the 388 unblocked rows still go.
+    for row in atlas_rows:
+        try:
+            delete_row(row["id"])
+            removed += 1
+        except RestrictedDeleteError:
+            blocked.append(row)
+    print(f"  deleted {removed} of {len(atlas_rows)} rows tagged source='handcrew_atlas'.")
+    if blocked:
+        print(f"\n  KEPT {len(blocked)} row(s) — still referenced by an open "
+              f"submission/correction (crew_submissions.crew_id):")
+        for row in blocked:
+            print(f"    id={row['id']:<6} {row.get('crew_name')}")
+        print("  Resolve those in `pending_corrections` / `pending_submissions`")
+        print("  (resolve_correction() / reject_submission()), then re-run --rollback")
+        print("  to remove them too.")
     if os.path.exists(BACKUP):
         saved = json.load(open(BACKUP, encoding="utf-8"))
         for row in saved:
@@ -430,27 +643,23 @@ def do_rollback():
                                   "website": row.get("website"),
                                   "resource": row.get("resource"),
                                   "state": row.get("state")})
-        print(f"  restored {len(saved)} enriched rows from {BACKUP}.")
+        print(f"\n  restored {len(saved)} enriched rows from {BACKUP}.")
         print(f"  ({BACKUP} left in place; delete it yourself once you're happy.)")
     else:
-        print(f"  no {BACKUP} found — nothing to restore for enrichment.")
-    print("\nDone. The table is back to its pre-Atlas state.")
+        print(f"\n  no {BACKUP} found — nothing to restore for enrichment.")
+    print("\nDone." if not blocked else "\nDone, partially — see KEPT rows above.")
 
 def run(commit):
     atlas = load_atlas()
     print(f"Parsed {len(atlas)} Atlas placemarks from {KMZ}.")
-    # Start from a clean base every run: drop any prior additions so proximity
-    # matching only ever considers our curated crews (never a self-match against
-    # a row we added last time). On --commit this also makes re-runs idempotent.
-    if commit:
-        delete_atlas_additions()
     crews = fetch_curated_crews()
     print(f"Fetched {len(crews)} curated crews from Supabase.\n")
 
     matches, new = build_plan(atlas, crews)
 
-    # Derive STATE from coordinates for crews that lack one: ALL new crews, plus
-    # any matched crew whose state is blank (we never overwrite an existing state).
+    # Derive STATE from coordinates for crews that lack one: ALL Atlas-sourced
+    # placemarks, plus any matched curated crew whose state is blank (we never
+    # overwrite an existing state).
     need_state = list(new) + [a for a, c, _ in matches if _blank(c.get("state"))]
     derive_states(need_state)
 
@@ -461,11 +670,40 @@ def run(commit):
     print(f"      + crew_name on all {len(matches)}")
     print(f"      + photo_url on {photos_m}")
     print(f"      + website set/preferred-to-Atlas on {web_changes} (others keep ours)")
-    print(f"  ADD (Atlas-only new crews): {len(new)}  -> source='handcrew_atlas'")
-    print(f"      (of which carry a photo: {sum(1 for a in new if a['photo_url'])})")
 
-    # Crew-type extraction summary (new rows get the label; matched rows only
-    # fill resource when ours is blank).
+    # Diff the Atlas-sourced side against what's already in the table, instead
+    # of assuming it all needs writing (see plan_atlas_upsert's docstring).
+    # Fetched on the dry run too, deliberately — "show me before you build it"
+    # means the printed plan below must match what --commit will actually do.
+    existing_atlas = fetch_atlas_rows()
+    to_update, to_insert, to_remove, unchanged = plan_atlas_upsert(new, existing_atlas)
+    print(f"  ATLAS-SOURCED CREWS ({len(new)} placemarks, {len(existing_atlas)} "
+          f"currently in `crews`):")
+    print(f"      unchanged (same atlas_key AND same content, zero writes): "
+          f"{unchanged}")
+    print(f"      UPDATE in place (same id, some field changed): {len(to_update)}")
+    if to_update:
+        existing_by_id = {r["id"]: r for r in existing_atlas}
+        print(f"        sample of what's actually changing (first 8 of {len(to_update)}):")
+        for row_id, desired in to_update[:8]:
+            old = existing_by_id[row_id]
+            diffs = [f for f in _ATLAS_FIELDS if old.get(f) != desired.get(f)]
+            print(f"          id={row_id:<6} {desired.get('crew_name')}")
+            for f in diffs:
+                print(f"              {f}: {old.get(f)!r}  ->  {desired.get(f)!r}")
+    print(f"      INSERT (new placemark, new id): {len(to_insert)}")
+    print(f"      REMOVE (no longer in the source KMZ): {len(to_remove)}")
+    if to_remove:
+        for row in to_remove[:10]:
+            print(f"        id={row['id']:<6} {row.get('crew_name')}")
+        if len(to_remove) > 10:
+            print(f"        ... and {len(to_remove) - 10} more")
+        print("        (each REMOVE is attempted individually on --commit; one still")
+        print("         referenced by an open correction is kept and reported, not")
+        print("         forced through or silently skipped.)")
+
+    # Crew-type extraction summary (new/updated rows get the label; matched
+    # curated rows only fill resource when ours is blank).
     new_labels = Counter(a["label"] for a in new)
     fill, kept = Counter(), 0
     for a, c, _ in matches:
@@ -474,7 +712,7 @@ def run(commit):
         elif a["label"]:
             fill[a["label"]] += 1
     print("  CREW-TYPE resource extraction:")
-    print(f"      new labeled: {sum(v for k, v in new_labels.items() if k)}"
+    print(f"      atlas-sourced labeled: {sum(v for k, v in new_labels.items() if k)}"
           f"  (blank: {new_labels[None]})")
     for lbl, n in new_labels.most_common():
         if lbl:
@@ -489,7 +727,7 @@ def run(commit):
     state_matched = sum(1 for a, c, _ in matches
                         if _blank(c.get("state")) and a.get("derived_state"))
     print("  STATE (reverse-geocoded from coordinates, fill-only-if-blank):")
-    print(f"      new crews given a state: {state_new}/{len(new)}"
+    print(f"      atlas-sourced crews given a state: {state_new}/{len(new)}"
           f"  (couldn't resolve: {len(new) - state_new})")
     print(f"      matched crews filled (were blank): {state_matched}")
     for a in [x for x in new if x.get("derived_state")][:5]:
@@ -516,14 +754,32 @@ def run(commit):
         patch_row(c["id"], enrich_body(a, c))
     print(f"Enriched {len(matches)} existing crews.")
 
-    insert_rows([new_row(a) for a in new])
-    print(f"Inserted {len(new)} new Atlas crews.")
+    for row_id, body in to_update:
+        patch_row(row_id, body)
+    print(f"Updated {len(to_update)} existing Atlas-sourced crews in place (same id).")
+
+    insert_rows(to_insert)
+    print(f"Inserted {len(to_insert)} new Atlas-sourced crews.")
+
+    removed, blocked = 0, []
+    for row in to_remove:
+        try:
+            delete_row(row["id"])
+            removed += 1
+        except RestrictedDeleteError:
+            blocked.append(row)
+    print(f"Removed {removed} of {len(to_remove)} Atlas-sourced crews no longer "
+          f"in the source KMZ.")
+    if blocked:
+        print(f"  KEPT {len(blocked)} — referenced by an open submission/correction:")
+        for row in blocked:
+            print(f"    id={row['id']:<6} {row.get('crew_name')}")
+        print("  Resolve those, then re-run --commit to finish removing them.")
 
     total = count_where()
     added = count_where("handcrew_atlas")
     print(f"\nDone. `crews` now has {total} rows ({added} tagged handcrew_atlas).")
     print("Rollback anytime with:  python3 atlas_import.py --rollback")
-    print("             or in SQL:  delete from crews where source = 'handcrew_atlas';")
 
 
 def main():
