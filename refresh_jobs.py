@@ -7,8 +7,28 @@ WHAT IT DOES (one manual run, like geocode.py — nothing automated)
   2. Drops "national-announcement" noise (postings with > 8 duty locations —
      those are administrative HQ lists, not real field stations).
   3. Expands each remaining posting into one entry PER duty-station town.
-  4. Geocodes each town to lat/lng via the free Nominatim geocoder, reusing the
-     job_geocache.json cache so we never re-geocode a town we've already looked up.
+  4. Takes each duty station's lat/lng straight from USAJOBS. It supplies a
+     coordinate on every PositionLocation (verified: 6437/6437 entries, none
+     zeroed), so there is nothing to geocode. This replaced a Nominatim lookup
+     on 2026-09-18 -- along with its ~1 req/sec throttle and job_geocache.json.
+     Both sources are town-level, so this is a simplification rather than a
+     precision gain, but it does fix cases where Nominatim resolved the wrong
+     feature entirely (it put Cherokee NC 49.7 mi and Elko NV 33.9 mi out by
+     landing on the COUNTY instead of the town).
+
+     WHERE BOTH SOURCES ARE BAD: national-park duty stations. Measured against
+     the actual developed areas, NEITHER source is usable as a worksite --
+     Sequoia is 9-15 mi out either way, Yellowstone 17-27 mi, Kings Canyon
+     7-23 mi. There is no consistent winner: USAJOBS is closer for Sequoia,
+     Nominatim for Yellowstone and Grand Canyon (where USAJOBS lands ~40 mi
+     out), and Kings Canyon is a tie. That is 4 of 49 towns. Switching is not
+     a regression for parks so much as a reshuffle of which way they are
+     wrong, so no special case is warranted -- keeping Nominatim for them
+     would reinstate the geocoder, its throttle and its cache to win a coin
+     flip. Accepted because a posting pin has always claimed only "there are
+     openings in this town," never a worksite. If park pins ever need to be
+     right, the fix is a small hand-written table of park HQ coordinates,
+     which would beat both sources.
   5. UPSERTS the results into the Supabase `jobs` table (insert new, update
      existing — keyed on announcement_number + town + state).
   6. Clears out postings that have closed (any table row not re-confirmed by
@@ -63,11 +83,6 @@ USAJOBS_URL = "https://data.usajobs.gov/api/search"
 JOB_SERIES = ["0456", "0462"]     # search BOTH (0462->0456 transition)
 RESULTS_PER_PAGE = 500            # max the API allows per page
 MAX_DUTY_LOCATIONS = 8            # drop postings with more than this (HQ noise)
-
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-# Same identifying User-Agent we use in geocode.py (Nominatim requires one).
-NOMINATIM_HEADERS = {"User-Agent": "crew-map/1.0 (firecrewreview@gmail.com)"}
-GEOCACHE = "job_geocache.json"    # reused from the proximity dry-run (gitignored)
 
 TABLE = "jobs"
 # The composite unique key on the table. PostgREST points its upsert here so a
@@ -274,9 +289,21 @@ def tidy(job):
     for loc in job.get("PositionLocation", []) or []:
         city = loc.get("CityName")
         state = loc.get("CountrySubDivisionCode")
-        if city and state:
+        # USAJOBS hands us a coordinate on every PositionLocation (verified:
+        # 6437/6437 entries, none zeroed). We used to throw these away here and
+        # then ask Nominatim to rediscover the same town — see the note above
+        # geocode's removal in the module docstring.
+        lat, lon = loc.get("Latitude"), loc.get("Longitude")
+        if city and state and lat is not None and lon is not None:
             # CityName is sometimes "Boise, Idaho"; keep the part before the comma.
-            locations.append((city.split(",")[0].strip(), state.strip()))
+            locations.append({
+                "town": city.split(",")[0].strip(),
+                "state": state.strip(),
+                # 5dp (~1m) matches what the Nominatim path used to store, so
+                # existing rows and new ones stay directly comparable.
+                "latitude": round(float(lat), 5),
+                "longitude": round(float(lon), 5),
+            })
 
     series = [c.get("Code") for c in (job.get("JobCategory") or []) if c.get("Code")]
     pay_plans = [g.get("Code") for g in (job.get("JobGrade") or []) if g.get("Code")]
@@ -354,71 +381,35 @@ def tidy(job):
 # 3) Geocode duty-station towns (reusing the on-disk cache)
 # ---------------------------------------------------------------------------
 
-def geocode_towns(town_state_pairs):
-    """
-    Given a set of (town, state) pairs, return a dict {(TOWN, STATE): [lat, lng]}.
-    Uses job_geocache.json so we never re-geocode a town we've already looked up.
-    Towns that can't be geocoded are simply left out (we won't insert rows for
-    them, since latitude/longitude are required).
-    """
-    cache = json.load(open(GEOCACHE)) if os.path.exists(GEOCACHE) else {}
-
-    # Build the query string for each pair and figure out what's new.
-    queries = {}                       # (TOWN,STATE) -> "Town, State, USA"
-    for town, state in town_state_pairs:
-        key = (town.upper(), state.upper())
-        queries[key] = f"{town}, {state}, USA"
-
-    new = [q for q in set(queries.values()) if q not in cache]
-    print(f"Geocoding {len(new)} new towns ({len(set(queries.values())) - len(new)} cached)...")
-    for q in new:
-        try:
-            r = requests.get(NOMINATIM_URL, headers=NOMINATIM_HEADERS, timeout=20,
-                             params={"q": q, "format": "json", "limit": 1, "countrycodes": "us"})
-            r.raise_for_status()
-            res = r.json()
-            cache[q] = [round(float(res[0]["lat"]), 5), round(float(res[0]["lon"]), 5)] if res else None
-        except Exception as e:
-            print(f"   error geocoding {q}: {e}")
-            cache[q] = None
-        time.sleep(1.1)                # stay under Nominatim's ~1 req/sec limit
-
-    json.dump(cache, open(GEOCACHE, "w"), indent=2)   # persist for next time
-
-    coords = {}
-    for key, q in queries.items():
-        if cache.get(q):
-            coords[key] = cache[q]
-    return coords
-
-
 # ---------------------------------------------------------------------------
 # 4) Build the rows to write (one per posting-town), then upsert + prune
 # ---------------------------------------------------------------------------
 
-def build_rows(postings, coords, run_stamp):
+def build_rows(postings, run_stamp):
     """
-    Turn tidied postings into `jobs` rows: one row per geocoded duty-station town.
-    Skips already-closed postings and towns we couldn't geocode. De-dupes on the
-    composite key so a single upsert batch never lists the same key twice.
+    Turn tidied postings into `jobs` rows: one row per duty-station town.
+    Skips already-closed postings. De-dupes on the composite key so a single
+    upsert batch never lists the same key twice.
+
+    No geocoding step any more: tidy() already carried USAJOBS' own coordinate
+    through, so there is nothing to look up and nothing to skip for want of a
+    coordinate.
     """
     today = date.today().isoformat()
     rows, seen = [], set()
-    skipped_closed = skipped_nogeo = 0
+    skipped_closed = skipped_nogeo = 0        # nogeo kept at 0 for the caller's print
 
     for p in postings:
         # Guard: never insert a posting whose application window already ended.
         if p["close_date"] and p["close_date"] < today:
             skipped_closed += 1
             continue
-        for town, state in p["locations"]:
+        for loc in p["locations"]:
+            town, state = loc["town"], loc["state"]
             key = (p["announcement_number"], town.upper(), state.upper())
             if key in seen:
                 continue                      # same posting+town already added
-            latlng = coords.get((town.upper(), state.upper()))
-            if not latlng:
-                skipped_nogeo += 1
-                continue
+            latlng = (loc["latitude"], loc["longitude"])
             seen.add(key)
             rows.append({
                 "announcement_number": p["announcement_number"],
@@ -502,9 +493,17 @@ def count_rows(rest_url, headers):
 # ---------------------------------------------------------------------------
 
 def main():
+    # --dry-run: pull from USAJOBS, build exactly the rows a real run would
+    # write, print a sample, and stop before touching Supabase. Added so this
+    # pipeline can be inspected without a write, the way every other script
+    # here already allows (atlas_import.py, region_backfill_commit.py). It
+    # deliberately needs no Supabase credentials at all, so there is no write
+    # path to reach even by accident.
+    dry_run = "--dry-run" in sys.argv
+
     load_env_local()
     api_key, email = get_usajobs_credentials()
-    rest_url, sb_headers = get_supabase_config()
+    rest_url, sb_headers = (None, None) if dry_run else get_supabase_config()
 
     # A single timestamp for this whole run (used to prune closed postings).
     run_stamp = datetime.now(timezone.utc).isoformat()
@@ -518,13 +517,10 @@ def main():
     print(f"\nFetched {len(tidied)} postings; kept {len(kept)} after dropping "
           f"{len(tidied) - len(kept)} with > {MAX_DUTY_LOCATIONS} duty locations.")
 
-    # Collect the unique towns across kept postings, then geocode them.
-    pairs = {loc for p in kept for loc in p["locations"]}
-    coords = geocode_towns(pairs)
-
-    rows, skipped_closed, skipped_nogeo = build_rows(kept, coords, run_stamp)
+    # No geocoding step: USAJOBS' own coordinate came through tidy().
+    rows, skipped_closed, skipped_nogeo = build_rows(kept, run_stamp)
     print(f"\nBuilt {len(rows)} job rows (one per posting-town). "
-          f"Skipped {skipped_closed} closed, {skipped_nogeo} un-geocodable.")
+          f"Skipped {skipped_closed} closed.")
 
     # Safety: if we somehow fetched nothing, do NOT wipe the table — that's more
     # likely an API hiccup than "zero fire jobs open in the whole country."
@@ -532,6 +528,19 @@ def main():
         print("No rows to write — skipping upsert AND cleanup to avoid emptying "
               "the table on a bad pull. Investigate before re-running.")
         sys.exit(1)
+
+    if dry_run:
+        towns = sorted({(r["town"], r["state"], r["latitude"], r["longitude"])
+                        for r in rows})
+        print(f"\nDRY RUN — nothing written. {len(rows)} rows would be upserted "
+              f"across {len(towns)} distinct duty-station towns.")
+        print("\nCoordinates now come straight from USAJOBS (no geocoder):")
+        for town, state, lat, lng in towns[:25]:
+            print(f"   {town + ', ' + state:38} ({lat}, {lng})")
+        if len(towns) > 25:
+            print(f"   ... and {len(towns) - 25} more")
+        print("\nRe-run without --dry-run to apply.")
+        return
 
     print("\nUpserting into Supabase...")
     upsert_rows(rest_url, sb_headers, rows)
