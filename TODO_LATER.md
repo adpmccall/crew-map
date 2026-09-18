@@ -86,39 +86,9 @@ and assume they were oversights. Revisit if submissions get real traffic.
       addition, not a rewrite: a toggleable overlay with its own controls and its
       own source labeling, alongside the Crews base layer and the Hiring overlay.
 
-## DATA LOSS — ~14 real crews are missing their own pins (Atlas merge bug)
-**This is a data bug, not a documentation or naming issue.** ~14 crews that
-exist in the Handcrew Atlas were silently swallowed by the merge and have no
-row and no pin on the map. Do not close this by editing a number in a doc.
-
-- [ ] **Fix `build_plan` in `atlas_import.py` so one curated crew can be claimed
-      only once.** It currently lets several Atlas placemarks all match the same
-      curated crew. Every match PATCHes that one row, so the last placemark
-      processed wins the `crew_name` — and the earlier ones are counted as
-      "matched", which means they are **never added as their own rows**.
-
-      **Measured, not guessed:** `atlas_import_backup.json` holds **138 entries
-      but only 124 unique ids** — 138 placemarks matched onto 124 curated crews,
-      so 14 placemarks vanished. (This is also where the old "138 enriched"
-      figure came from: it counted matches, not rows. The true number of
-      enriched rows is 124 — the docs now say so.)
-
-      **The 11 curated rows that absorbed extras:**
-      - 3 placemarks each: Mormon Lake IHC (id 144), Springville IHC (id 350),
-        Union IHC (id 402)
-      - 2 placemarks each: ids 34, 54, 110, 162, 163, 356, 416, 418
-
-      **The fix:** claim each curated crew at most once (best/closest match
-      wins) and send the runners-up to the "new rows" pile so they get inserted
-      as `source='handcrew_atlas'` like any other Atlas-only crew.
-
-      **To verify it worked:** re-running the import should produce a backup
-      whose entry count equals its unique-id count, and `crews` should gain
-      ~14 rows.
-
-      **Severity:** low urgency, real loss. Each missing crew is co-located with
-      one that does show, so nothing looks broken — which is exactly why this
-      would otherwise go unnoticed indefinitely.
+## DATA LOSS — ~14 Atlas crews had no pin (Atlas merge dedup bug)
+**Moved to `TODO_NOW.md` on 2026-09-18** — it became active work. The
+`build_plan` fix is written; the import still has to be re-run to apply it.
 
 ## Atlas crew patches — ✅ FIXED 2026-08-28 (re-hosted on Supabase Storage)
 **The 114 images are crew logos/patches**, one per Atlas crew — bespoke artwork

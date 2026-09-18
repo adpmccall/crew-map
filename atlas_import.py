@@ -331,17 +331,58 @@ def insert_rows(rows):
 # --- plan: decide matches vs new (pure, no writes) -----------------------------
 
 def build_plan(atlas, crews):
-    matches, new = [], []
-    for a in atlas:
+    """Decide which Atlas placemarks enrich an existing curated crew, and which
+    become brand-new rows. Pure: works out a plan, writes nothing.
+
+    ONE CURATED CREW CAN BE CLAIMED BY ONLY ONE PLACEMARK.
+    Several Atlas placemarks often sit inside the match radius of the same
+    curated crew — a base with three modules sharing one address, for instance.
+    The first version of this function let all of them "match" it. Every match
+    PATCHed that same row, so the last placemark processed won the crew_name,
+    and the earlier ones were recorded as matched and therefore NEVER inserted
+    as rows of their own. 14 real crews disappeared that way: no row, no pin,
+    and nothing looked broken because each one sits next to a crew that does
+    show. So a crew is claimed once, by its CLOSEST placemark, and the
+    runners-up fall through to `new` — which is where they belonged all along.
+    """
+    # --- pass 1: collect claims -------------------------------------------
+    # Per placemark this is the original rule, unchanged: the single nearest
+    # curated crew, accepted only if it is close enough AND the forest names
+    # agree. Deliberately NOT widened to "any crew in range" — that would
+    # invent matches the old code never made and quietly rewrite live rows.
+    # Nothing is decided here; we only note who wants what.
+    claims = []      # (distance, order, placemark, crew) — qualifying placemarks
+    leftovers = []   # (order, placemark) — no qualifying candidate at all
+    for order, a in enumerate(atlas):
         best, bd = None, 1e9
         for c in crews:
             d = _miles(a["latitude"], a["longitude"], c["latitude"], c["longitude"])
             if d < bd:
                 bd, best = d, c
         if best and bd <= MATCH_RADIUS_MI and _forest_match(a["forest"], best.get("forest")):
-            matches.append((a, best, bd))
+            claims.append((bd, order, a, best))
         else:
-            new.append(a)
+            leftovers.append((order, a))
+
+    # --- pass 2: settle contested crews ------------------------------------
+    # Sorting by distance means the closest claim on any crew is seen first and
+    # wins it. `order` is only a tie-breaker, so two identical distances always
+    # resolve the same way and re-runs stay deterministic. Losing a contest
+    # does not mean the placemark is a duplicate — it means it is a different
+    # crew that happens to sit nearby, so it becomes its own row.
+    winner_by_crew = {}          # crew id -> (order, placemark, crew, distance)
+    for bd, order, a, c in sorted(claims, key=lambda t: (t[0], t[1])):
+        if c["id"] in winner_by_crew:
+            leftovers.append((order, a))
+        else:
+            winner_by_crew[c["id"]] = (order, a, c, bd)
+
+    # Hand both lists back in the original Atlas order, so the dry-run output
+    # and the inserted rows read the same way from one run to the next.
+    matches = [(a, c, bd)
+               for order, a, c, bd in sorted(winner_by_crew.values(),
+                                             key=lambda t: t[0])]
+    new = [a for order, a in sorted(leftovers, key=lambda t: t[0])]
     return matches, new
 
 def _blank(v):

@@ -3,6 +3,64 @@
 Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 `TODO_LATER.md` for the deferred backlog.
 
+## DATA LOSS — ~14 Atlas crews had no pin (dedup bug) — CODE FIXED 2026-09-18, NOT YET APPLIED
+
+Moved up from `TODO_LATER.md` because it is now active work. **The code fix is
+written; the database has not been changed.** Until the import is re-run with
+`--commit`, the 14 crews are still missing from the map.
+
+**The bug.** `build_plan` in `atlas_import.py` let several Atlas placemarks all
+match the *same* curated crew. Every match PATCHed that one row, so the last
+placemark processed won the `crew_name` — and the earlier ones were recorded as
+"matched", which meant they were **never inserted as rows of their own**.
+
+**Measured, not guessed.** `atlas_import_backup.json` holds **138 entries but
+only 124 unique ids**, so 138 placemarks landed on 124 crews and 14 vanished.
+(That is also where the old "138 enriched" figure came from: it counted matches,
+not rows. The real number of enriched rows is 124.) The 11 crews that absorbed
+extras: 3 placemarks each on ids 144, 350, 402; 2 each on ids 34, 54, 110, 162,
+163, 356, 416, 418. That is 3x2 + 8x1 = 14 lost.
+
+- [x] **Fixed `build_plan` so a curated crew can be claimed only once.** Two
+      passes: collect every qualifying claim, then award each crew to its
+      CLOSEST placemark and drop the runners-up into the `new` pile, where they
+      get inserted as `source='handcrew_atlas'` like any other Atlas-only crew.
+      Ties break on Atlas order so re-runs are deterministic.
+      **Per-placemark matching is deliberately unchanged** — still the single
+      nearest crew, gated on radius + forest agreement. Widening it to "any crew
+      in range" would invent matches the old code never made and rewrite live
+      rows for reasons unrelated to this bug.
+      Verified offline on synthetic data reproducing the real shape (3
+      placemarks on one crew): before, 3 matches onto 1 id with 2 swallowed;
+      after, 1 match and 2 new rows, with every placemark accounted for.
+
+- [ ] **OWNER STEP: dry run first.** `python3 atlas_import.py`
+      **Expected:** `ENRICH (confirmed matches)` drops from **138 to 124**, and
+      `ADD (Atlas-only new crews)` rises by **exactly 14**. Nothing is written.
+- [ ] **OWNER STEP: apply it.** `python3 atlas_import.py --commit`
+      `crews` should go from 829 to **843**. Re-runs are safe: the script drops
+      all `source='handcrew_atlas'` rows first and rebuilds them.
+- [ ] **OWNER STEP: spot-check a recovered crew on the live map** — pick one of
+      the contested bases (Mormon Lake, Springville or Union) and confirm the
+      second and third crews now have their own pins.
+
+**⚠️ DO NOT move `atlas_import_backup.json` aside to "get a clean backup".**
+`run()` writes that file only `if not os.path.exists(BACKUP)`, and it captures
+whatever the table looks like at that moment. Renaming or deleting it and
+re-running `--commit` would write a new "pre-Atlas" snapshot taken from the
+**already-enriched** table, destroying the real rollback point. The dry-run
+counts above verify the fix without writing anything, which is why they are the
+check rather than the backup's shape. (The current backup's 11 duplicated ids
+hold identical values, so `--rollback` remains correct as it stands.)
+
+**⚠️ Expect `crew_name` to change on up to 11 rows.** Those crews previously
+took their name from whichever placemark happened to be processed last; they now
+take it from the closest one. More defensible, but it is a live-data change, so
+look at the dry run before committing.
+
+**Severity:** low urgency, real loss. Each missing crew is co-located with one
+that does show, so nothing looks broken — which is exactly why it went unnoticed.
+
 ## BUG — corrections emailed as "new crew submission" — ✅ FIXED 2026-09-18 (verified live)
 
 For about four weeks, a correction sent through `/submit?crew=<id>` arrived as
