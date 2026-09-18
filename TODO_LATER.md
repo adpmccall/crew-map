@@ -58,8 +58,8 @@ and assume they were oversights. Revisit if submissions get real traffic.
       emails should be purged on a schedule regardless of volume, since they're
       personal data we only need while a submission is under review.
 
-## Use USAJOBS' own coordinates instead of geocoding towns ourselves
-- [ ] **`refresh_jobs.py` geocodes `"{town}, {state}, USA"` through Nominatim —
+## Use USAJOBS' own coordinates instead of geocoding towns ourselves — ✅ SHIPPED 2026-09-18 (`03641c1`)
+- [x] **`refresh_jobs.py` geocodes `"{town}, {state}, USA"` through Nominatim —
       but USAJOBS already hands us `Latitude`/`Longitude` on every
       `PositionLocation`.** Verified on the live corpus: all 1376 location
       entries carry coordinates.
@@ -79,6 +79,79 @@ and assume they were oversights. Revisit if submissions get real traffic.
       where present.
       Kept separate from the posting-markers change on purpose; it touches the
       refresh pipeline, not the map.
+
+**✅ SHIPPED 2026-09-18 in `03641c1`.** Everything above is the original
+write-up, kept as the record. `geocode_towns()`, `NOMINATIM_URL`,
+`NOMINATIM_HEADERS` and the `job_geocache.json` cache are gone; `tidy()` carries
+USAJOBS' coordinate straight through. Also added `--dry-run`, which needs no
+Supabase credentials and so has no write path at all.
+
+**Two corrections to the analysis above, measured rather than assumed:**
+
+- **The two named outliers could not be re-measured** — the Holloman AFB and
+  Hawaii National Park postings had closed by the time this was done. The same
+  failure mode was confirmed on live data instead: Nominatim resolved the
+  **county** rather than the town, putting Cherokee NC **49.7 mi** and Elko NV
+  **33.9 mi** out. USAJOBS puts them 2.2 mi and 0.6 mi out.
+- **"USAJOBS is likelier right" does not hold for national parks.** Measured
+  against actual developed areas, neither source is usable there — Sequoia is
+  9-15 mi out either way, Yellowstone 17-27 mi, Kings Canyon 7-23 mi — and
+  there is no consistent winner. USAJOBS is closer for Sequoia and Kings
+  Canyon, Nominatim for Yellowstone and Grand Canyon (USAJOBS lands ~40 mi out
+  there). 4 of 49 towns. Deliberately not special-cased — see the park-HQ
+  override idea below.
+
+**Still outstanding from this item:**
+
+- [ ] **Remove the now-dead `actions/cache` step** in
+      `.github/workflows/refresh-jobs.yml` (lines ~85-99), which exists only to
+      preserve `job_geocache.json`. Harmless but pointless. Held back
+      deliberately so the pipeline change could be reviewed on its own.
+- [ ] **`AddressLine` is still unused.** Present on 31 of 6437 location entries
+      in the current corpus. A facility NAME, not a street — "Yosemite National
+      Park", "Central CA BLM Bishop Field Office". Useless as a coordinate, but
+      a nice popup label. Needs a `jobs` column, so it's schema work.
+
+## Small fixes found while working on something else
+
+- [ ] **The `other` agency label says "NGO" but the bucket isn't only NGOs.**
+      Three files describe one bucket three ways: `lib/agencies.js` labels it
+      **"Other / NGO"**, `agency_schema.sql` comments it "non-profits and NGOs
+      (e.g. The Nature Conservancy)", and `agency_backfill_dryrun.py` calls it
+      **"Other federal / NGO"**. The classifier's version is the accurate one —
+      the bucket holds DoD units too (Vandenberg Crew 2 is a Space Force base
+      fire department), and "Other / NGO" reads plainly wrong on that popup.
+      A one-word label change plus aligning the two comments. Cosmetic, no data
+      migration. Deferred on purpose 2026-09-18.
+
+- [ ] **A hand-written table of park HQ coordinates would beat both geocoders.**
+      For national-park duty stations neither USAJOBS nor Nominatim is within
+      useful distance of where anyone actually reports for work (see the
+      USAJOBS-coordinates item above). Four or five entries — Grand Canyon
+      Village, Mammoth Hot Springs, Ash Mountain, Grant Grove — would cut Grand
+      Canyon's error from ~40 mi to near zero and Yellowstone's from ~26 mi,
+      with no network call, no cache and no throttle. **Only worth doing if
+      park pins ever actually matter**; today a posting pin claims only "there
+      are openings in this town," which is the standing rule from removing the
+      amber ring. Noted in `refresh_jobs.py`'s docstring too.
+
+- [ ] **`nifc.gov` is treated as zero evidence, but the URL PATH is real
+      signal.** `agency_backfill_dryrun.py` discards `nifc.gov` as interagency,
+      which is right for the bare domain and wrong for these:
+      `nifc.gov/about-us/our-partners/blm/blm-crews/<crew>`. That path is an
+      explicit BLM attribution. **Six of the 17 `unknown` crews were unknown
+      only because of this** — Unaweep WFM, Devil's Canyon Veterans, Vegas
+      Valley Veterans, Folsom Lake Veterans, Spokane Veterans and Medford Crew
+      10, all resolved to `blm` by reading their own URLs (one page fetched to
+      confirm: "operates under the Bureau of Land Management", BLM Border Field
+      Office, part of the BLM veteran hiring initiative).
+      **The fix:** match on `/our-partners/<agency>/` in the path before
+      falling back to the domain rule. Check whether the other `our-partners`
+      subpaths (`uswfs`, etc.) map as cleanly before generalising.
+      **Careful — "Veterans" is not one program.** Helena Veterans HC (id 832)
+      is USFS, not BLM: its site is `fs.usda.gov/r01/helena-lewisclark` and its
+      notes say "new program 2025". Two agencies run veteran crews under
+      similar names, so don't classify on the word "Veterans".
 
 ## Housing layer — the next big build (future)
 - [ ] Add a **Housing** layer to the layers-based control panel. The panel was

@@ -70,8 +70,10 @@ visitor couldn't discover from a screen of dots. No login was ever added.
   composite upsert key `announcement_number,town,state`). `refresh_jobs.py`
   pulls open postings in **series 0456 + 0462**, drops national-announcement
   noise (>8 duty locations), expands each posting into one row per duty-station
-  town, geocodes via Nominatim (cached in `job_geocache.json`), and **upserts**
-  into `jobs`. Re-runnable; **won't wipe the table on an empty/bad pull**;
+  town, and **upserts** into `jobs`. **Since 2026-09-18 it does no geocoding at
+  all** — USAJOBS supplies a coordinate on every duty location (6437/6437), so
+  the Nominatim call, its throttle and `job_geocache.json` were removed. It also
+  gained `--dry-run`, which needs no Supabase credentials and cannot write. Re-runnable; **won't wipe the table on an empty/bad pull**;
   prunes postings that have closed.
 - **Refreshes itself daily ✅** — `.github/workflows/refresh-jobs.yml`
   ("Refresh jobs data") runs the script at 09:17 UTC, plus a manual **Run
