@@ -3,6 +3,75 @@
 Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 `TODO_LATER.md` for the deferred backlog.
 
+## BUG — corrections emailed as "new crew submission" — ✅ FIXED 2026-09-18 (verified live)
+
+For about four weeks, a correction sent through `/submit?crew=<id>` arrived as
+`New crew submission: unnamed`, with blank crew type/website, pointing at
+`pending_submissions` / `approve_submission()` instead of the correction queue.
+
+**The data was never wrong**, which is the reassuring part. A direct query
+during diagnosis showed the rows stored exactly as intended:
+
+```
+id  submission_kind  crew_id  crew_name  status
+38  correction       795      null       pending
+39  correction       500      null       pending
+```
+
+Correctly filed corrections, tied to the right crew, sitting in
+`pending_corrections` the whole time. The submit form was never at fault either:
+`SubmitForm.js:362` binds `handleCorrectionSubmit` in correction mode, and that
+handler (`:152-157`) sends both `submission_kind` and `crew_id`. **Nothing was
+lost or misfiled — only the email was wrong.**
+
+**Root cause: a deploy gap, not a logic bug.** `submission_notifications.sql`
+was run on 2026-08-20 (`97ed195`), before corrections existed. That version had
+a single template whose only subject line was
+`'New crew submission: ' || coalesce(new.crew_name, 'unnamed')` — verbatim what
+arrived, "unnamed" included. The correction branch was added to the *file* on
+2026-08-21 (`c5eea70`), but `create or replace function` changes Postgres only
+when it is **executed**. The file was edited; the database was never re-run, so
+it kept running the August 20th function.
+
+**⚠️ THE GENERAL LESSON — editing a `.sql` file in this repo does NOT change the
+database.** Every `.sql` file here is a script a human runs in the Supabase SQL
+editor. A schema or trigger change is not shipped when it is committed, and a
+Vercel deploy never touches Postgres. When a database behaviour disagrees with
+the file that defines it, **check whether the file was ever re-run before
+debugging the logic.** That check would have found this in a minute rather than
+a month. This is the second correction-path failure the build could not see —
+see the honeypot bug below.
+
+**The fix needed no code change** — the repo file was already correct; it just
+had to be executed.
+
+- [x] **Re-ran `submission_notifications.sql`** in the Supabase SQL editor
+      (2026-09-18). Idempotent, and the vault secrets were untouched — the
+      `vault.create_secret` lines in that file are comments, not statements.
+- [x] **Rejected the junk test rows** 8, 38, 39 and 41.
+- [x] **Verified live (2026-09-18):** a correction filed against crew 500 now
+      emails **`Correction reported: Overland Module`**. That also confirms the
+      trigger's crew-name lookup
+      (`coalesce(c.crew_name, c.district, c.forest, '(unnamed)')`) resolves a
+      real crew, and that the body points at the correction queue.
+
+**Still open — one thing.** Any *real* correction reported between 2026-08-21
+and the 2026-09-18 fix went out under the wrong subject line, so it may have
+been skimmed past. Those reports are queued correctly; they were just announced
+badly.
+
+- [ ] **OWNER STEP: sweep for overlooked real corrections.** Read-only. The
+      rejected test rows are already excluded, so anything this returns is a
+      genuine unreviewed report:
+      `select * from pending_corrections;`
+      To see the whole correction history including ones already handled or
+      rejected, so nothing real was closed out by mistake during the confusion:
+      `select id, crew_id, status, submitted_at, reviewed_at, submitter_email,`
+      `       left(notes, 80) as what_they_say`
+      `  from crew_submissions`
+      ` where submission_kind = 'correction'`
+      ` order by submitted_at;`
+
 ## Phase 0 (data ready) — ✅ DONE
 - [x] Switch `geocode.py` to Nominatim (free, town-level, no key)
 - [x] Run geocoding → `crews_with_coords.json`
@@ -312,7 +381,7 @@ ARCHITECTURE.md for the decisions.
       polished, no startup-marketing gloss. Same claims, fewer flourishes.
 - [x] Fixed `titleCaseState` capitalising "District Of Columbia".
 
-## Visibility: analytics + submission alerts — ⚠️ NEEDS 2 SETUP STEPS
+## Visibility: analytics + submission alerts — ✅ DONE
 Added once the site went public, because both blind spots were created by the
 launch itself.
 - [x] **Vercel Web Analytics** (`@vercel/analytics`, mounted in `app/layout.js`).
@@ -321,15 +390,20 @@ launch itself.
       adds no service. **Why it matters:** coverage now depends on submissions
       arriving, and without measurement "no submissions" can't be told apart
       from "nobody saw the form."
-- [ ] **OWNER STEP: turn Analytics on** in Vercel → project → Analytics tab →
-      Enable. The code is deployed; data only starts collecting after that.
+- [x] **OWNER STEP: turn Analytics on** in Vercel → project → Analytics tab →
+      Enable. **Confirmed on (2026-09-18).** The code was already deployed;
+      collection started when this was flipped.
 - [x] **Email alert on every new submission** (`submission_notifications.sql`) —
       a Postgres trigger calling Resend directly via `pg_net`. No Edge Function,
       no API route, no polling. Secrets live in Supabase Vault. The trigger
       swallows every error: a broken mailer must never cost us a submission.
-- [ ] **OWNER STEP: create a free Resend account + API key**, then store it and
-      your address in Vault and run `submission_notifications.sql`. Full
-      instructions are in the header of that file.
+- [x] **OWNER STEP: create a free Resend account + API key**, store it and your
+      address in Vault, run `submission_notifications.sql`. **Done 2026-08-20** —
+      proven by submission emails actually arriving. Full instructions are in
+      the header of that file.
+      **Note:** the version run that day predated corrections, which is what
+      caused the wrong-subject bug at the top of this file. The current file was
+      re-run on 2026-09-18 and both email kinds are now verified live.
 
 ## Public crew submissions (Phase 3 v1) — ✅ LIVE (2026-08-19)
 Our answer to nationwide coverage: let the people who work the missing crews add
