@@ -64,3 +64,10 @@ merge_review_*.csv
 # people's crew artwork, so the files live in Supabase Storage, not in git.
 photo_rehost_files/
 photo_rehost_backup.json
+
+# Scratch folder the Claude desktop/Cowork app drops exports into. Ignored
+# because it is a staging area, not source: files land here as a side effect
+# of a session, and at least one (an IHC superintendent contact list) held
+# 108 people's names, direct phone numbers and work emails. This is a PUBLIC
+# repo, so a stray `git add .` must not be able to publish one.
+Claude outputs/
