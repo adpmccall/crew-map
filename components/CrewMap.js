@@ -200,7 +200,13 @@ export default function CrewMap() {
           // agency from the agency backfill. They have to be listed here or the
           // UI would never see them — Supabase returns only the columns we ask
           // for, which is exactly how the popup lost crew_name once already.
-          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url, agency"
+          //
+          // contact_* are the crew-leadership fields (108 hotshot crews as of
+          // 2026-09-19); CrewPopup shows them when contact_name is set.
+          // contact_source and contact_updated_at are deliberately NOT fetched:
+          // they are internal provenance, never displayed, and there is no
+          // reason to ship them to every visitor's browser.
+          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url, agency, contact_name, contact_role, contact_phone, contact_email"
         )
         .not("latitude", "is", null)
         .not("longitude", "is", null);

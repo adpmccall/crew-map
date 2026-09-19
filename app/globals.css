@@ -449,6 +449,19 @@ body {
   color: #777;
 }
 
+/* Sourcing credit under the crew-leadership contact. Same muted italic
+   register as .crew-popup-noname above — deliberately reusing those values
+   rather than inventing a second "quiet note" look. display:block puts it on
+   its own line under the name without needing its own <dd>. */
+.crew-popup-source {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.35;
+  color: #777;
+}
+
 /* Optional crew photo (only Handcrew Atlas rows have one). Deliberately
    bounded: it fills the popup's width and is CROPPED to a fixed height, so a
    large source image can't stretch the popup or push the details off screen.

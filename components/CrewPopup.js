@@ -63,6 +63,16 @@ function Row({ label, value }) {
   );
 }
 
+// A tel: href wants digits, not the human formatting. "360-854-2643" dials
+// fine in most browsers as-is, but stripping to digits (keeping a leading +
+// for anything international) is what the spec actually asks for and avoids
+// relying on the dialler to be forgiving. The DISPLAYED text keeps its dashes.
+function telHref(phone) {
+  const raw = (phone || "").trim();
+  const plus = raw.startsWith("+") ? "+" : "";
+  return `tel:${plus}${raw.replace(/[^0-9]/g, "")}`;
+}
+
 // How many nearby jobs to list in the popup before we just show a "+N more"
 // summary — keeps a crew near a busy hiring town from producing a giant popup.
 const MAX_JOBS_SHOWN = 5;
@@ -125,6 +135,62 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
 
         <dt>Housing</dt>
         <dd>{housingLabel(crew.housing)}</dd>
+
+        {/* Crew leadership, on the 108 hotshot crews we have it for. Gated on
+            contact_name: every other crew has NULL here, and a bare "Contact:"
+            with nothing after it reads as broken — the same reason Row bails
+            on a blank value.
+
+            Deliberately inside the existing <dl> rather than its own section:
+            a sibling <div> would carry its own margin and leave a visible gap
+            on the ~700 crews with no contact. dt/dd pairs simply aren't
+            emitted, so there is structurally nothing to space out.
+
+            Phone and email are checked separately from the name — a crew can
+            have a superintendent listed with only one of the two. */}
+        {crew.contact_name && (
+          <>
+            <dt>Contact</dt>
+            <dd>
+              {[crew.contact_name, crew.contact_role]
+                .map((v) => (v || "").trim())
+                .filter(Boolean)
+                .join(", ")}
+              {/* Credits the source the same way the About section does for
+                  the crew listings, the atlas and USAJOBS. A named person's
+                  phone number invites more trust than the rest of the card,
+                  so it should say where it came from and how old it is.
+                  Static rather than read from contact_source: that column is
+                  internal provenance and isn't fetched. If the directory is
+                  re-scraped, update this string too. */}
+              <span className="crew-popup-source">
+                per FS IHC directory, Sept 2026
+              </span>
+            </dd>
+
+            {crew.contact_phone && crew.contact_phone.trim() && (
+              <>
+                <dt>Phone</dt>
+                <dd>
+                  <a href={telHref(crew.contact_phone)}>
+                    {crew.contact_phone.trim()}
+                  </a>
+                </dd>
+              </>
+            )}
+
+            {crew.contact_email && crew.contact_email.trim() && (
+              <>
+                <dt>Email</dt>
+                <dd>
+                  <a href={`mailto:${crew.contact_email.trim()}`}>
+                    {crew.contact_email.trim()}
+                  </a>
+                </dd>
+              </>
+            )}
+          </>
+        )}
 
         {/* Only show the website row when there's actually a website. */}
         {website && (
