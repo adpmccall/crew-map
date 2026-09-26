@@ -462,19 +462,25 @@ body {
   color: #777;
 }
 
-/* Optional crew photo (only Handcrew Atlas rows have one). Deliberately
-   bounded: it fills the popup's width and is CROPPED to a fixed height, so a
-   large source image can't stretch the popup or push the details off screen.
-   `.crew-popup` caps the width (240px desktop / 76vw mobile), so width:100%
-   is safe in both. */
+/* Optional crew photo/patch. Deliberately bounded: it fills the popup's width
+   and is capped to a fixed height, so a large source image can't stretch the
+   popup or push the details off screen. `.crew-popup` caps the width (240px
+   desktop / 76vw mobile), so width:100% is safe in both.
+   object-fit:contain (not cover) on purpose: many of these are square team
+   photos or round/square patches (crew-photos storage bucket), and cover was
+   center-cropping close to half the image off a square photo to force it
+   into this wide box. contain always shows the whole image, letterboxed
+   left/right (wide box, square-ish photo) or top/bottom (rare very-wide
+   photo) using the neutral placeholder background below — a little empty
+   space beats a cropped-off patch or half a face. */
 .crew-popup-photo {
   display: block;
   width: 100%;
   max-height: 130px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 4px;
   margin: 0 0 8px;
-  background: #eaeaea; /* neutral placeholder while the image loads */
+  background: #eaeaea; /* neutral placeholder while the image loads, and now doubles as letterbox fill */
 }
 
 /* Two-column layout: label on the left, value on the right. */
