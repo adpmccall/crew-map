@@ -60,6 +60,16 @@ const SECTIONS = [
     cta: "Add a crew",
     requiresSubmissions: true,
   },
+  {
+    href: "/hikes",
+    eyebrow: "Hotshot crews",
+    title: "Crew PT hikes",
+    body:
+      "Every hotshot crew has (or wants) a signature conditioning hike. See " +
+      "the ones we know about so far — distance, elevation gain, and where " +
+      "we don't have real numbers yet, help fill them in.",
+    cta: "See the hikes",
+  },
 ];
 
 export default function Landing() {

@@ -277,6 +277,9 @@ export default function Filters({
 
       </LayerSection>
 
+      {/* Hotshot Crew Hikes moved to its own standalone map at "/hikes" —
+          see components/HikesMap.js. This panel stays crews-and-hiring-only. */}
+
       <button type="button" className="filter-clear" onClick={onClear}>
         Clear filters
       </button>
@@ -300,6 +303,10 @@ export default function Filters({
           from, or that it isn't official. Ungated: unlike the submission form,
           the landing page always exists, and without this the only route back
           is editing the URL. */}
+      <a className="filter-about-link" href="/hikes">
+        Crew PT hikes →
+      </a>
+
       <a className="filter-about-link" href="/#about">
         About this map
       </a>

@@ -12,6 +12,52 @@ import {
 import { agencyLabel } from "../lib/agencies";
 import PostingList from "./PostingList";
 
+// One line of a crew's PT hike, for the optional `hikes` section below.
+// Three honest states, not two: a hike with real numbers (from a submitted
+// .gpx track, OR stated by the crew/a contact — the `source` field says
+// which), a hike we know exists but have no numbers for yet, and — the
+// normal case on the main crew map — no hikes prop passed at all, which
+// renders nothing. See HikesMap.js, the only place that passes `hikes` in.
+function HikeLine({ hike }) {
+  const hasStats = hike.distance_miles != null;
+  const sourceLabel =
+    hike.source === "crew_published"
+      ? "stated by the crew"
+      : hike.source === "contact_reported"
+      ? "reported, not from a track"
+      : "computed from a submitted track";
+
+  return (
+    <div className="crew-popup-hike">
+      <dt>{hike.hike_name || "PT hike"}</dt>
+      <dd>
+        {hasStats ? (
+          <>
+            {hike.distance_miles} mi
+            {hike.elevation_gain_ft != null &&
+              `, ${Math.round(hike.elevation_gain_ft).toLocaleString()} ft gain`}
+            <span className="crew-popup-hike-source"> ({sourceLabel})</span>
+            {hike.source_url && (
+              <>
+                {" "}
+                —{" "}
+                <a href={hike.source_url} target="_blank" rel="noopener noreferrer">
+                  verify
+                </a>
+              </>
+            )}
+          </>
+        ) : (
+          <span className="crew-popup-hike-missing">
+            Location known, no distance/elevation yet — know this hike?
+          </span>
+        )}
+        {hike.notes && <div className="crew-popup-hike-notes">{hike.notes}</div>}
+      </dd>
+    </div>
+  );
+}
+
 // Housing is stored as "YES" / "NO" / "" (blank). Blank means we simply don't
 // know, so we show "Unknown" rather than implying "No".
 function housingLabel(housing) {
@@ -79,7 +125,10 @@ const MAX_JOBS_SHOWN = 5;
 
 // `nearbyJobs` is an array of { job, distanceMi }, already sorted closest-first
 // by the map. It's empty (default) for crews with no open postings within range.
-export default function CrewPopup({ crew, nearbyJobs = [] }) {
+// `hikes` is only ever passed by HikesMap.js (the standalone Hikes map) — the
+// main crew map never passes it, so this section renders nothing there and
+// CrewPopup's existing behavior is completely unchanged for every other use.
+export default function CrewPopup({ crew, nearbyJobs = [], hikes = [] }) {
   // A real name when we have one — every Atlas row, plus the 124 curated rows
   // the Atlas matched. Otherwise the crew's base, clearly labelled as such.
   // Shared with the correction form via lib/formatting so a report and the pin
@@ -209,6 +258,22 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
         )}
       </dl>
 
+      {/* PT hike(s), only on the standalone Hikes map (see the `hikes` prop
+          note above CrewPopup's signature). A crew can have more than one
+          (Lolo IHC has 5) so this is always a list, never a single item. */}
+      {hikes.length > 0 && (
+        <div className="crew-popup-hikes">
+          <h4 className="crew-popup-hikes-title">
+            {hikes.length > 1 ? "PT hikes" : "PT hike"}
+          </h4>
+          <dl className="crew-popup-hikes-list">
+            {hikes.map((h) => (
+              <HikeLine key={h.id} hike={h} />
+            ))}
+          </dl>
+        </div>
+      )}
+
       {/* The way to tell us this crew is wrong. Gated by the SAME flag as every
           other door into the submission flow (the landing card, the map panel
           link) — one switch, so a review pause closes all of them together
@@ -216,9 +281,16 @@ export default function CrewPopup({ crew, nearbyJobs = [] }) {
           It carries ?crew=<id>, which is what puts the form into correction
           mode and tells the reviewer which pin was clicked. */}
       {process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true" && (
-        <a className="crew-popup-report" href={`/submit?crew=${crew.id}`}>
-          Something wrong with this one?
-        </a>
+        <>
+          <a className="crew-popup-report" href={`/submit?crew=${crew.id}`}>
+            Something wrong with this one?
+          </a>
+          {/* Hotshot Crew Hikes: same gate, same review-queue pattern as the
+              correction link above — see hike_submissions_schema.sql. */}
+          <a className="crew-popup-report" href={`/submit-hike?crew=${crew.id}`}>
+            Add this crew&apos;s PT hike
+          </a>
+        </>
       )}
 
       {/* Open postings near this crew.

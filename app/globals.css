@@ -1571,3 +1571,187 @@ body {
   padding-left: 20px;
 }
 .landing-about li { margin-bottom: 8px; }
+
+/* ============================================================================
+   Hotshot Crew Hikes
+   ============================================================================ */
+
+/* The small explanatory line inside the Hikes layer section of the filter
+   panel — same register as the layer-source notes elsewhere, just wrapping
+   to a second line since this one's a full sentence rather than a stat. */
+.layer-hikes-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #666;
+}
+
+/* Give the hikes legend row the same breathing room as the hiring row. */
+/* The hike detail popup (shown when a hike line is clicked). Same look as
+   .crew-popup on purpose — it's the same kind of card, just for a hike
+   instead of a crew. */
+.hike-popup {
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  color: #111;
+  max-width: 240px;
+}
+
+.hike-popup-title {
+  margin: 0 0 2px;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.hike-popup-crew {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.hike-popup-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+}
+
+.hike-popup-list dt {
+  font-weight: 600;
+  color: #555;
+}
+
+.hike-popup-list dd {
+  margin: 0;
+}
+
+.hike-popup-download {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: #166534;
+}
+
+/* The "computed, not self-reported" note — same quiet, muted register as
+   .posting-popup-note, for the same reason: present so nobody mistakes this
+   for a self-reported time, but never competing with the numbers above it. */
+.hike-popup-note {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+  font-size: 11px;
+  font-style: italic;
+  color: #888;
+  line-height: 1.35;
+}
+
+/* === PT hike section inside CrewPopup, only on the standalone Hikes map
+   (HikesMap.js passes a `hikes` prop; the main crew map never does, so this
+   never shows there). Sits between the crew's own details and the "report a
+   problem" link. === */
+.crew-popup-hikes {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.crew-popup-hikes-title {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.crew-popup-hikes-list {
+  margin: 0;
+}
+
+.crew-popup-hike {
+  margin-bottom: 6px;
+}
+
+.crew-popup-hike dt {
+  font-weight: 600;
+  color: #555;
+  font-size: 12.5px;
+}
+
+.crew-popup-hike dd {
+  margin: 0 0 0 0;
+  font-size: 12.5px;
+}
+
+.crew-popup-hike-source {
+  color: #888;
+  font-size: 11.5px;
+}
+
+/* The "we know this hike exists, we don't have numbers" state — blue to
+   match the KNOWN_NO_STATS_COLOR pin on HikesMap.js, so a visitor can
+   connect the popup back to the pin color that got them here. */
+.crew-popup-hike-missing {
+  color: #2563eb;
+}
+
+.crew-popup-hike-notes {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: #666;
+  font-style: italic;
+}
+
+/* === The standalone Hikes map's own small header + legend. Deliberately
+   not a copy of the full Filters/Legend components — see HikesMap.js for
+   why this page stays simpler. === */
+.hikes-topbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  background: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-family: system-ui, sans-serif;
+  max-width: calc(100vw - 24px);
+}
+
+.hikes-back-link {
+  font-size: 13px;
+  color: #166534;
+  white-space: nowrap;
+}
+
+.hikes-title {
+  margin: 0;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.hikes-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 12px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: #333;
+}
+
+.hikes-legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

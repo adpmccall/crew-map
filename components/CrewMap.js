@@ -745,6 +745,10 @@ export default function CrewMap() {
               </Popup>
             </Marker>
           ))}
+
+        {/* Hotshot Crew Hikes moved to its own standalone map at "/hikes" —
+            decided 2026-09-27, built 2026-10-26. See components/HikesMap.js.
+            This map stays focused on finding crews. */}
       </MapContainer>
     </div>
   );
