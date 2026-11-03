@@ -178,7 +178,7 @@ export default function HikesMap() {
               }}
             >
               <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
-                <CrewPopup crew={crew} hikes={crewHikes} />
+                <CrewPopup crew={crew} hikes={crewHikes} compact />
               </Popup>
             </CircleMarker>
           );

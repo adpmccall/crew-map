@@ -424,6 +424,23 @@ body {
   background: #eaeaea;
 }
 
+/* Caps how tall ANY Leaflet popup is allowed to get, so long content (e.g. a
+   crew with 5 stated PT hikes, like Lolo IHC) scrolls inside the popup
+   instead of growing without limit. Found 2026-11-03: unbounded content broke
+   Leaflet's own autoPan — it tried to pan the map far enough to fit the whole
+   837px-tall popup on screen, overshooting wildly, and the popup still ran
+   off both edges afterward since no amount of panning alone can fit content
+   taller than the viewport. Capped well under a typical viewport height so
+   there's always room left for Leaflet's own popup chrome (tip, close
+   button) around it. Lives on Leaflet's own wrapper class, not .crew-popup,
+   so it applies to every popup on the site (HikePopup included) rather than
+   needing the same fix copied into each one. */
+.leaflet-popup-content {
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* The crew detail popup (shown when a pin is clicked). */
 .crew-popup {
   font-family: system-ui, sans-serif;

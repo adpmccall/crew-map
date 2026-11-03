@@ -128,7 +128,17 @@ const MAX_JOBS_SHOWN = 5;
 // `hikes` is only ever passed by HikesMap.js (the standalone Hikes map) — the
 // main crew map never passes it, so this section renders nothing there and
 // CrewPopup's existing behavior is completely unchanged for every other use.
-export default function CrewPopup({ crew, nearbyJobs = [], hikes = [] }) {
+//
+// `compact` is also only ever passed by HikesMap.js. On a page whose whole
+// point is the hike info, repeating every crew-map detail field (agency,
+// forest, crew type, region, housing, leadership contact, website) is just
+// noise once you already know which crew you clicked — and on a crew with
+// several hikes (Lolo IHC has 5) it was a real contributor to the popup
+// overflow bug fixed 2026-11-03 (see .leaflet-popup-content in globals.css
+// for the actual height fix, which applies regardless of this prop). Name
+// and location stay — nothing on this map labels which state a pin is in,
+// so dropping location would make an identical-colored pin unidentifiable.
+export default function CrewPopup({ crew, nearbyJobs = [], hikes = [], compact = false }) {
   // A real name when we have one — every Atlas row, plus the 124 curated rows
   // the Atlas matched. Otherwise the crew's base, clearly labelled as such.
   // Shared with the correction form via lib/formatting so a report and the pin
@@ -176,14 +186,18 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [] }) {
             for Forest Service crews — a county or tribal crew has neither, so
             opening with "Forest" buried the one field that always applies.
             Matches the filter panel, where Agency also sits above Region. */}
-        <Row label="Agency" value={agencyLabel(crew.agency)} />
-        <Row label="Forest" value={crew.forest} />
+        {!compact && <Row label="Agency" value={agencyLabel(crew.agency)} />}
+        {!compact && <Row label="Forest" value={crew.forest} />}
         <Row label="Location" value={location} />
-        <Row label="Crew type" value={resource} />
-        <Row label="Region" value={crew.region} />
+        {!compact && <Row label="Crew type" value={resource} />}
+        {!compact && <Row label="Region" value={crew.region} />}
 
-        <dt>Housing</dt>
-        <dd>{housingLabel(crew.housing)}</dd>
+        {!compact && (
+          <>
+            <dt>Housing</dt>
+            <dd>{housingLabel(crew.housing)}</dd>
+          </>
+        )}
 
         {/* Crew leadership, on the 108 hotshot crews we have it for. Gated on
             contact_name: every other crew has NULL here, and a bare "Contact:"
@@ -197,7 +211,7 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [] }) {
 
             Phone and email are checked separately from the name — a crew can
             have a superintendent listed with only one of the two. */}
-        {crew.contact_name && (
+        {!compact && crew.contact_name && (
           <>
             <dt>Contact</dt>
             <dd>
@@ -242,7 +256,7 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [] }) {
         )}
 
         {/* Only show the website row when there's actually a website. */}
-        {website && (
+        {!compact && website && (
           <>
             <dt>Website</dt>
             <dd>
