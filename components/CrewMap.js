@@ -8,7 +8,7 @@
 // It's a client component ("use client") and is loaded with ssr:false from
 // app/page.js, because Leaflet only works in the browser.
 
-import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -29,6 +29,7 @@ import Filters from "./Filters";
 import CrewPopup from "./CrewPopup";
 import PostingPopup from "./PostingPopup";
 import Legend from "./Legend";
+import SearchBar from "./SearchBar";
 
 // Open on the whole continental US, not just the West. This project's scope is
 // nationwide, and we already hold crews in R8/R9/R10 (Eastern/Southern/Alaska)
@@ -165,6 +166,20 @@ export default function CrewMap() {
   // dominant thing on a phone. On desktop this is ignored — CSS keeps the panel
   // always visible there — so desktop behavior is unchanged.
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+
+  // --- Search bar wiring -----------------------------------------------
+  // react-leaflet v4's MapContainer ref gives the real Leaflet Map
+  // instance directly (not a wrapper), so flyTo/getZoom work straight off
+  // this ref. markerRefs maps crew.id -> the Leaflet marker/circle-marker
+  // instance so a search pick can call .openPopup() on the exact pin —
+  // Leaflet layers expose that themselves, no extra plumbing needed.
+  const mapRef = useRef(null);
+  const markerRefs = useRef(new Map());
+  // Set by handleSearchSelect, cleared once the marker is found and its
+  // popup opened. A crew the active filters are hiding won't have a
+  // marker yet the instant it's picked — see handleSearchSelect — so this
+  // is re-checked by the effect below on every render until it resolves.
+  const [searchTargetId, setSearchTargetId] = useState(null);
 
   // Build one Leaflet DivIcon per crew type ONCE and reuse it for every marker
   // of that type (making 440 icons individually would be wasteful). L.divIcon
@@ -492,6 +507,42 @@ export default function CrewMap() {
     });
   }, [crews, filters, nearbyJobsByCrew, hiringLayerOn]);
 
+  // A crew picked from search doesn't have a marker to open a popup on
+  // until it's actually rendered — if the active filters are hiding it,
+  // clearing them (in handleSearchSelect, below) is what makes that
+  // happen, and this effect keeps re-checking until the marker shows up.
+  // visibleCrews/mode changing is what makes a previously-hidden crew's
+  // marker appear (or swaps Marker for CircleMarker), so both are deps
+  // even though neither is read directly in the body.
+  useEffect(() => {
+    if (searchTargetId == null) return;
+    const marker = markerRefs.current.get(searchTargetId);
+    if (marker) {
+      marker.openPopup();
+      setSearchTargetId(null);
+    }
+  }, [searchTargetId, visibleCrews, mode]);
+
+  // A search result is picked regardless of the active filters — that's
+  // the whole point (see SearchBar.js): find ONE exact crew without first
+  // clearing or fiddling with filters yourself. So if the filters would
+  // currently hide this crew, clear them so its pin actually exists to fly
+  // to and open. flyTo happens immediately either way; the popup opens
+  // once the marker shows up, via the effect above.
+  function handleSearchSelect(crew) {
+    if (crew.latitude == null || crew.longitude == null) return;
+    const isVisible = visibleCrews.some((c) => c.id === crew.id);
+    if (!isVisible) setFilters(EMPTY_FILTERS);
+    setMobilePanelOpen(false);
+    if (mapRef.current) {
+      mapRef.current.flyTo(
+        [crew.latitude, crew.longitude],
+        Math.max(mapRef.current.getZoom(), 11)
+      );
+    }
+    setSearchTargetId(crew.id);
+  }
+
   // Toggle one value in a multi-select facet (state / region / crewType):
   // add it if it's not checked, remove it if it is.
   function toggleFilter(key, value) {
@@ -599,6 +650,12 @@ export default function CrewMap() {
             />
           )}
 
+          {/* The crew search box — top-right, deliberately its own thing
+              rather than part of the rail: it's not a filter (see
+              handleSearchSelect above and the .crew-search note in
+              globals.css), it's a way to jump straight to one named crew. */}
+          <SearchBar crews={crews} onSelect={handleSearchSelect} />
+
           {/* LEFT RAIL — the filter panel and the legend share one column.
               They used to be positioned independently: the panel anchored to
               top:12px growing downward, the legend anchored to bottom:16px,
@@ -650,6 +707,7 @@ export default function CrewMap() {
           sits at top-left and would overlap the filter panel). We add our own
           below, positioned at the bottom-right instead. */}
       <MapContainer
+        ref={mapRef}
         center={US_CENTER}
         zoom={US_ZOOM}
         className="map-canvas"
@@ -689,7 +747,16 @@ export default function CrewMap() {
             const t = crewTypeFor(crew.resource, filters.crewType);
             return (
               <Fragment key={crew.id}>
-                <Marker position={position} icon={typeIcons[t.key]}>
+                <Marker
+                  position={position}
+                  icon={typeIcons[t.key]}
+                  // Tracked by id so a search pick can open THIS exact
+                  // marker's popup — see markerRefs/handleSearchSelect.
+                  ref={(instance) => {
+                    if (instance) markerRefs.current.set(crew.id, instance);
+                    else markerRefs.current.delete(crew.id);
+                  }}
+                >
                   <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
                     <CrewPopup crew={crew} nearbyJobs={nearbyJobs} />
                   </Popup>
@@ -708,6 +775,12 @@ export default function CrewMap() {
                   color: color,
                   fillColor: color,
                   fillOpacity: 0.85,
+                }}
+                // Tracked by id so a search pick can open THIS exact
+                // marker's popup — see markerRefs/handleSearchSelect.
+                ref={(instance) => {
+                  if (instance) markerRefs.current.set(crew.id, instance);
+                  else markerRefs.current.delete(crew.id);
                 }}
               >
                 <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>

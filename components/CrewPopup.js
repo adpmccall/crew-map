@@ -148,6 +148,13 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [], compact =
   // Trim-safe versions of the optional fields.
   const resource = crew.resource && crew.resource.trim() ? crew.resource : "Not listed";
   const website = crew.website ? crew.website.trim() : "";
+  // Added 2026-11-03 alongside the instagram_url/facebook_url migration —
+  // see crews_instagram_url_shape / crews_facebook_url_shape in
+  // instagram_facebook_migration_2026-11-03.sql for how these are validated
+  // going in. Gated the same way as Website, below: hidden in `compact`
+  // mode, shown only when actually set.
+  const instagram = crew.instagram_url ? crew.instagram_url.trim() : "";
+  const facebook = crew.facebook_url ? crew.facebook_url.trim() : "";
 
   // Atlas rows may carry one photo. Ignore anything that isn't an http(s) URL.
   const photoUrl =
@@ -266,6 +273,33 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [], compact =
                 rel="noopener noreferrer"
               >
                 {website}
+              </a>
+            </dd>
+          </>
+        )}
+
+        {/* Instagram / Facebook — same gating as Website: hidden on the
+            compact Hikes-map popup, shown only when actually set. Link text
+            says the platform rather than repeating the full URL, since
+            these tend to be long and the handle/page name is what the URL
+            itself is for. */}
+        {!compact && instagram && (
+          <>
+            <dt>Instagram</dt>
+            <dd>
+              <a href={withProtocol(instagram)} target="_blank" rel="noopener noreferrer">
+                {instagram}
+              </a>
+            </dd>
+          </>
+        )}
+
+        {!compact && facebook && (
+          <>
+            <dt>Facebook</dt>
+            <dd>
+              <a href={withProtocol(facebook)} target="_blank" rel="noopener noreferrer">
+                {facebook}
               </a>
             </dd>
           </>

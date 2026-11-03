@@ -272,6 +272,76 @@ body {
   pointer-events: auto;
 }
 
+/* The crew search box — top-right, deliberately NOT part of the rail
+   (filters + legend, top-left). Search is explicitly not a filter: typing
+   a name and picking it jumps straight to that one crew regardless of
+   what's currently filtered (see handleSearchSelect in CrewMap.js), so it
+   gets its own corner rather than living inside the filter panel. */
+.crew-search {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1100;
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  font-family: system-ui, sans-serif;
+}
+.crew-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  color: #111;
+}
+.crew-search-input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+.crew-search-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+}
+.crew-search-result {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font: inherit;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #111;
+}
+.crew-search-result-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.crew-search-result-location {
+  font-size: 12px;
+  color: #666;
+}
+.crew-search-result:hover,
+.crew-search-result.is-active {
+  background: #eff6ff;
+}
+.crew-search-empty {
+  font-size: 13px;
+  color: #666;
+  padding: 7px 8px;
+}
+
 .filter-panel {
   /* Positioned by the rail now, not by coordinates of its own. */
   position: static;
@@ -883,6 +953,22 @@ body {
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
     font-family: system-ui, sans-serif;
     white-space: nowrap;
+  }
+
+  /* ---- Search box → full width, under the Filters/count bar ----
+     On desktop it sits top-right in its own corner (see the base rule
+     above); on a phone there's no spare corner, so instead it drops below
+     the "☰ Filters" bar rather than squeezing in beside it. */
+  .crew-search {
+    top: 62px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+  }
+  .crew-search-input {
+    font-size: 16px; /* matches the no-iOS-zoom rule used elsewhere */
+    min-height: 44px;
   }
 
   /* MOBILE KEEPS THE OLD LAYOUT. `display: contents` removes the rail from the
