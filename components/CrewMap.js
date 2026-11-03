@@ -221,7 +221,11 @@ export default function CrewMap() {
           // contact_source and contact_updated_at are deliberately NOT fetched:
           // they are internal provenance, never displayed, and there is no
           // reason to ship them to every visitor's browser.
-          "id, region, forest, district, town, state, resource, housing, notes, website, latitude, longitude, crew_name, photo_url, agency, contact_name, contact_role, contact_phone, contact_email"
+          // instagram_url/facebook_url added 2026-11-03 — same lesson as the
+          // comment above about contact_*: a column CrewPopup reads has to
+          // be named here explicitly or it arrives as `undefined` and the
+          // UI silently never shows it.
+          "id, region, forest, district, town, state, resource, housing, notes, website, instagram_url, facebook_url, latitude, longitude, crew_name, photo_url, agency, contact_name, contact_role, contact_phone, contact_email"
         )
         .not("latitude", "is", null)
         .not("longitude", "is", null);
