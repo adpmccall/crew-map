@@ -40,11 +40,30 @@ import { supabase } from "../lib/supabaseClient";
 import CrewPopup from "./CrewPopup";
 import HikePopup from "./HikePopup";
 
-const HAS_STATS_COLOR = "#166534"; // pin color -- "real numbers on file"
-const KNOWN_NO_STATS_COLOR = "#2563eb"; // blue — "help us fill this in"
+// Pin colors = how complete a crew's hike data is. Changed 2026-11 (owner
+// call): the line between green and blue used to be "has distance/elevation
+// numbers"; it's now "has a .gpx track," because a track is what actually
+// draws a line on this map. A crew that published its numbers but has no
+// track (Lolo, Winema) is blue: known, and what's missing is the .gpx.
+// Green was a dark forest green (#166534) until 2026-11, which vanished
+// against tree canopy on the satellite layer. A brighter green plus the white
+// outline below (see PIN_OUTLINE) reads on satellite AND street map.
+const HAS_TRACK_COLOR = "#22c55e"; // green — at least one .gpx track on file
+const NEEDS_GPX_COLOR = "#2563eb"; // blue — hike known, no .gpx track yet
 const NO_HIKE_COLOR = "#9ca3af"; // grey — nothing on file yet
 
-// Deliberately its own color, NOT the same as HAS_STATS_COLOR above. The
+// Pin sizes. Grey pins are the majority and have nothing to show, so they're
+// drawn much smaller, leaving the green/blue pins easy to spot and click.
+const PIN_RADIUS = 7;
+const NO_HIKE_PIN_RADIUS = 3;
+
+// A white ring around the green and blue pins. On satellite imagery almost
+// any solid color can blend into terrain somewhere; a white edge separates
+// the pin from whatever is behind it (the same trick most map apps use).
+// Grey pins skip it so they stay quiet in the background.
+const PIN_OUTLINE = "#ffffff";
+
+// Deliberately its own color, NOT the same as HAS_TRACK_COLOR above. The
 // line used to reuse that green so pin and track matched, but a dark green
 // line is hard to see against both the street map and (especially) satellite
 // imagery -- see 2026-11 owner feedback. A bright orange-red reads clearly
@@ -135,10 +154,27 @@ export default function HikesMap() {
   const hikesWithTrack = useMemo(() => hikes.filter((h) => h.path), [hikes]);
 
   function colorFor(crewHikes) {
-    if (crewHikes.some((h) => h.distance_miles != null)) return HAS_STATS_COLOR;
-    if (crewHikes.length > 0) return KNOWN_NO_STATS_COLOR;
+    if (crewHikes.some((h) => h.path)) return HAS_TRACK_COLOR;
+    if (crewHikes.length > 0) return NEEDS_GPX_COLOR;
     return NO_HIKE_COLOR;
   }
+
+  // Draw order = stacking order. Leaflet paints shapes in the order they're
+  // added, and later ones sit ON TOP. So sort grey first, then blue, then
+  // green: where pins overlap, the ones with hikes are on top and get the
+  // click. (Hike lines are drawn after all pins, so they stay on top too.)
+  const DRAW_RANK = { [NO_HIKE_COLOR]: 0, [NEEDS_GPX_COLOR]: 1, [HAS_TRACK_COLOR]: 2 };
+  const crewsInDrawOrder = useMemo(
+    () =>
+      [...crews].sort(
+        (a, b) =>
+          DRAW_RANK[colorFor(hikesByCrew.get(a.id) || [])] -
+          DRAW_RANK[colorFor(hikesByCrew.get(b.id) || [])]
+      ),
+    // Re-sort only when the data changes. (colorFor and DRAW_RANK just read
+    // constants plus hikesByCrew, so these two cover everything.)
+    [crews, hikesByCrew]
+  );
 
   // Clicking a crew's pin used to just pop the marker's own popup open at
   // whatever zoom the map already happened to be at -- on a crew with a real
@@ -217,12 +253,12 @@ export default function HikesMap() {
       {status === "ready" && (
         <div className="hikes-legend">
           <span>
-            <span className="hikes-legend-dot" style={{ background: HAS_STATS_COLOR }} />
-            Has real numbers
+            <span className="hikes-legend-dot" style={{ background: HAS_TRACK_COLOR }} />
+            Has .gpx track
           </span>
           <span>
-            <span className="hikes-legend-dot" style={{ background: KNOWN_NO_STATS_COLOR }} />
-            Known, needs numbers
+            <span className="hikes-legend-dot" style={{ background: NEEDS_GPX_COLOR }} />
+            Known, needs .gpx data
           </span>
           <span>
             <span className="hikes-legend-dot" style={{ background: NO_HIKE_COLOR }} />
@@ -259,18 +295,20 @@ export default function HikesMap() {
         </LayersControl>
         <ZoomControl position="bottomright" />
 
-        {crews.map((crew) => {
+        {crewsInDrawOrder.map((crew) => {
           const crewHikes = hikesByCrew.get(crew.id) || [];
+          const color = colorFor(crewHikes);
           return (
             <CircleMarker
               key={crew.id}
               center={[crew.latitude, crew.longitude]}
-              radius={6}
-              pathOptions={{
-                color: colorFor(crewHikes),
-                fillColor: colorFor(crewHikes),
-                fillOpacity: 0.85,
-              }}
+              radius={color === NO_HIKE_COLOR ? NO_HIKE_PIN_RADIUS : PIN_RADIUS}
+              pathOptions={
+                color === NO_HIKE_COLOR
+                  ? { color, fillColor: color, fillOpacity: 0.85, weight: 1 }
+                  : // `color` is the outline in Leaflet, `fillColor` the inside.
+                    { color: PIN_OUTLINE, weight: 2, fillColor: color, fillOpacity: 1 }
+              }
               eventHandlers={{
                 click: () => focusCrew(crew, crewHikes),
               }}

@@ -1793,7 +1793,7 @@ body {
 }
 
 /* The "we know this hike exists, we don't have numbers" state — blue to
-   match the KNOWN_NO_STATS_COLOR pin on HikesMap.js, so a visitor can
+   match the NEEDS_GPX_COLOR pin on HikesMap.js, so a visitor can
    connect the popup back to the pin color that got them here. */
 .crew-popup-hike-missing {
   color: #2563eb;
