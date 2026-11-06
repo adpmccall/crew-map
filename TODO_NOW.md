@@ -3,6 +3,29 @@
 Immediate next steps only. See `ARCHITECTURE.md` for the plan and
 `TODO_LATER.md` for the deferred backlog.
 
+## Aesthetics pass: Hikes map, popup, filter panel, homepage — ✅ DONE 2026-11-06
+
+Pushed as commits `319c0a0`..`c441fcb`. All ICING, owner-requested.
+
+- [x] **Hikes map (`/hikes`):** satellite (Esri World Imagery) is the default
+      base layer with a Street Map toggle; pin click eases in over 1.5s
+      (`flyTo`/`flyToBounds`); clicking a hike line zooms in tighter on just
+      that track; track lines are orange-red (`#ff4500`).
+- [x] **Hikes pin colors now mean .gpx coverage:** green = has a .gpx track,
+      blue = "Known, needs .gpx data" (Lolo, Winema), grey = no hike. Hike pins
+      draw on top of grey ones, grey pins are smaller, and green/blue get a
+      brighter fill and a white ring so they read on satellite.
+- [x] **Crew popup:** town, state and region show in title case
+      (`titleCase()` in `lib/formatting.js`), display only.
+- [x] **Filter panel:** bigger CSS chevron on the Crews/Hiring headers; the
+      "base" tag next to Crews is gone.
+- [x] **Homepage redesign:** picked from mockups. Live counts from Supabase
+      (`lib/useSiteStats.js`), headline "Wildland fire crews, mapped.", About
+      section kept word for word so `/#about` still works.
+- [ ] **Owner to run `hikes_remove_empty_rows_2026-11-06.sql`** in the
+      Supabase SQL editor (preview step first). Deletes the empty Crane Valley
+      and Kings River hike rows so those pins turn grey. Until then they're blue.
+
 ## Atlas id churn + the ~14 missing crews — ✅ DONE 2026-09-18 (verified in Supabase)
 
 Two problems, one fix. The map gained **14 crews that had never had a pin**, and
