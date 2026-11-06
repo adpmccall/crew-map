@@ -24,7 +24,7 @@
 // Filters.js would be overkill — CLAUDE.md's own "ship the simplest version
 // first" rule. Add one later if the hike count grows enough to need it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -51,6 +51,12 @@ export default function HikesMap() {
   const [crews, setCrews] = useState([]);
   const [hikes, setHikes] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | error
+
+  // react-leaflet v4 forwards this ref straight to the real Leaflet Map
+  // instance, so mapRef.current.fitBounds(...) works directly -- no
+  // useMap()/child-component indirection needed since we're calling it from
+  // an event handler, not during render.
+  const mapRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -118,6 +124,29 @@ export default function HikesMap() {
     return NO_HIKE_COLOR;
   }
 
+  // Clicking a crew's pin used to just pop the marker's own popup open at
+  // whatever zoom the map already happened to be at -- on a crew with a real
+  // track, that routinely left the hike's own line (which can run well over
+  // a mile from the pin) off-screen entirely. Now it frames the pin AND
+  // every one of that crew's drawn tracks together. A crew with no track on
+  // file (blue/grey) has nothing to fit but the pin, so it just centers on
+  // it at a reasonable street-level zoom instead.
+  function focusCrew(crew, crewHikes) {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const points = [[crew.latitude, crew.longitude]];
+    for (const h of crewHikes) {
+      if (h.path) points.push(...h.path);
+    }
+
+    if (points.length > 1) {
+      map.fitBounds(points, { padding: [50, 50], maxZoom: 15 });
+    } else {
+      map.setView([crew.latitude, crew.longitude], 13);
+    }
+  }
+
   return (
     <div className="map-wrapper">
       <div className="hikes-topbar">
@@ -157,7 +186,13 @@ export default function HikesMap() {
         </div>
       )}
 
-      <MapContainer center={US_CENTER} zoom={US_ZOOM} className="map-canvas" zoomControl={false}>
+      <MapContainer
+        ref={mapRef}
+        center={US_CENTER}
+        zoom={US_ZOOM}
+        className="map-canvas"
+        zoomControl={false}
+      >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -175,6 +210,9 @@ export default function HikesMap() {
                 color: colorFor(crewHikes),
                 fillColor: colorFor(crewHikes),
                 fillOpacity: 0.85,
+              }}
+              eventHandlers={{
+                click: () => focusCrew(crew, crewHikes),
               }}
             >
               <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>

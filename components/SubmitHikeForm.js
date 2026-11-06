@@ -42,6 +42,13 @@ export default function SubmitHikeForm() {
   const [targetCrew, setTargetCrew] = useState(null);
   const [crewLoad, setCrewLoad] = useState("idle"); // idle|loading|ready|missing
 
+  // Which map sent us here -- set via `&from=hikes` on the CrewPopup link
+  // (only HikesMap.js's popups add it; see CrewPopup.js). Defaults to the
+  // main map so an old/bookmarked /submit-hike link without the param keeps
+  // its original behavior.
+  const [backHref, setBackHref] = useState("/map");
+  const [backLabel, setBackLabel] = useState("the map");
+
   const [hikeName, setHikeName] = useState("");
   const [notes, setNotes] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
@@ -63,7 +70,13 @@ export default function SubmitHikeForm() {
   const lastSentAt = useRef(0);
 
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("crew");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from") === "hikes") {
+      setBackHref("/hikes");
+      setBackLabel("the hikes map");
+    }
+
+    const raw = params.get("crew");
     if (!raw || !/^\d+$/.test(raw)) {
       setCrewLoad("missing");
       return;
@@ -225,7 +238,7 @@ export default function SubmitHikeForm() {
             we need to ask you anything we&apos;ll email you.
           </p>
           <p className="submit-actions">
-            <Link href="/map">← Back to the map</Link>
+            <Link href={backHref}>← Back to {backLabel}</Link>
           </p>
         </div>
       </div>
@@ -243,7 +256,7 @@ export default function SubmitHikeForm() {
             crew&apos;s PT hike&quot; link in its popup.
           </p>
           <p className="submit-actions">
-            <Link href="/map">← Go to the map</Link>
+            <Link href={backHref}>← Go to {backLabel}</Link>
           </p>
         </div>
       </div>
@@ -259,7 +272,7 @@ export default function SubmitHikeForm() {
     <div className="submit-page">
       <form className="submit-form" onSubmit={handleSubmit} noValidate>
         <p className="submit-back">
-          <Link href="/map">← Back to the map</Link>
+          <Link href={backHref}>← Back to {backLabel}</Link>
         </p>
 
         <h1>Add a crew&apos;s PT hike</h1>
