@@ -9,7 +9,7 @@
 // to .crew-search in globals.css and handleSearchSelect in CrewMap.js.
 
 import { useEffect, useRef, useState } from "react";
-import { crewDisplayName } from "../lib/formatting";
+import { crewDisplayName, titleCase } from "../lib/formatting";
 
 // Enough matches to be useful without the dropdown running off screen —
 // same idea as MAX_JOBS_SHOWN in CrewPopup.
@@ -102,8 +102,10 @@ export default function SearchBar({ crews, onSelect }) {
           ) : (
             results.map((crew, i) => {
               const { name } = crewDisplayName(crew);
+              // Title-cased like the crew popup ("Missoula, Montana"), so a
+              // result and the pin it opens read the same.
               const location = [crew.town, crew.state]
-                .map((v) => (v || "").trim())
+                .map(titleCase)
                 .filter(Boolean)
                 .join(", ");
               return (
