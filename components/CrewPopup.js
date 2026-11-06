@@ -8,6 +8,7 @@ import {
   withProtocol,
   isHttpUrl,
   crewDisplayName,
+  titleCase,
 } from "../lib/formatting";
 import { agencyLabel } from "../lib/agencies";
 import PostingList from "./PostingList";
@@ -163,10 +164,15 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [], compact =
   // "TOWN, STATE" — but join only the parts we actually have. Atlas crews
   // typically have a state (reverse-geocoded) and no town, which used to render
   // as a stray leading comma: ", MONTANA".
+  //
+  // Town, state and region are title-cased for DISPLAY only ("Butte,
+  // Montana", not "BUTTE, MONTANA"). The stored values stay uppercase on
+  // purpose: the State/Region filters match against them exactly.
   const location = [crew.town, crew.state]
-    .map((v) => (v || "").trim())
+    .map(titleCase)
     .filter(Boolean)
     .join(", ");
+  const region = titleCase(crew.region);
 
   return (
     <div className="crew-popup">
@@ -197,7 +203,7 @@ export default function CrewPopup({ crew, nearbyJobs = [], hikes = [], compact =
         {!compact && <Row label="Forest" value={crew.forest} />}
         <Row label="Location" value={location} />
         {!compact && <Row label="Crew type" value={resource} />}
-        {!compact && <Row label="Region" value={crew.region} />}
+        {!compact && <Row label="Region" value={region} />}
 
         {!compact && (
           <>
