@@ -171,6 +171,27 @@ export default function HikesMap() {
     }
   }
 
+  // Clicking a hike's line (not the crew pin) means "show me THIS hike," so
+  // it frames only that one track -- no crew pin, no other tracks -- with
+  // tighter padding and a higher zoom ceiling than focusCrew, so the line
+  // fills the screen. Same flyToBounds + FLY_DURATION, so it eases in just
+  // like the pin click does. 2026-11 owner request.
+  function focusHike(hike) {
+    const map = mapRef.current;
+    if (!map || !hike.path?.length) return;
+
+    if (hike.path.length > 1) {
+      map.flyToBounds(hike.path, {
+        padding: [30, 30],
+        maxZoom: 17, // vs 15 for a crew pin: a short track can zoom in further
+        duration: FLY_DURATION,
+      });
+    } else {
+      // A one-point "track" has no extent to fit, so just center on it.
+      map.flyTo(hike.path[0], 16, { duration: FLY_DURATION });
+    }
+  }
+
   return (
     <div className="map-wrapper">
       <div className="hikes-topbar">
@@ -266,6 +287,9 @@ export default function HikesMap() {
             key={`hike-${hike.id}`}
             positions={hike.path}
             pathOptions={{ color: TRACK_LINE_COLOR, weight: 5, opacity: 0.9 }}
+            eventHandlers={{
+              click: () => focusHike(hike),
+            }}
           >
             <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
               <HikePopup
