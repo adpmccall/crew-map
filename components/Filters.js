@@ -58,15 +58,19 @@ function CheckboxGroup({ title, options, selected, onToggle }) {
 //   sourceLabel — the honest data-source / freshness line (React node or string).
 //   toggle      — OPTIONAL { checked, onChange, disabled }. When given, the header
 //                 shows an on/off switch (a toggleable overlay layer). When
-//                 omitted, the layer is the always-on base layer and shows a
-//                 "base" tag instead.
+//                 omitted, the layer is the always-on base layer and the
+//                 header shows just its title.
 //   children    — the layer's controls.
 function LayerSection({ title, defaultOpen, sourceLabel, toggle, children }) {
   return (
     <details className="layer" open={defaultOpen}>
       <summary className="layer-summary">
         <span className="layer-title">{title}</span>
-        {toggle ? (
+        {/* Only overlay layers (Hiring) get an on/off switch. The always-on
+            Crews layer used to show a small "base" tag here instead, which
+            read as unexplained jargon (2026-11 owner feedback), so it now
+            shows nothing. */}
+        {toggle && (
           // Clicking the switch must toggle the LAYER, not expand/collapse the
           // section — so we stop the click from reaching <summary>.
           <span className="layer-switch" onClick={(e) => e.stopPropagation()}>
@@ -79,8 +83,6 @@ function LayerSection({ title, defaultOpen, sourceLabel, toggle, children }) {
               title={`Show/hide the ${title} layer`}
             />
           </span>
-        ) : (
-          <span className="layer-base-tag">base</span>
         )}
       </summary>
       <div className="layer-body">

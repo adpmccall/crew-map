@@ -724,8 +724,8 @@ body {
   background: #fafafa;
 }
 
-/* The clickable header: caret + layer name (fills the width) + an on/off switch
-   or a "base" tag on the right. */
+/* The clickable header: chevron + layer name (fills the width) + an on/off
+   switch on the right for overlay layers (Hiring). */
 .layer > summary {
   list-style: none;
   cursor: pointer;
@@ -741,32 +741,30 @@ body {
   display: none;
 }
 
-/* Leading caret that flips when the section opens. */
+/* Leading chevron that turns to point down when the section opens.
+   This used to be a 10px light-grey "▸" text character, which was smaller
+   than the 13px bold header next to it and easy to miss (2026-11 owner
+   feedback). It's now drawn with CSS instead of a font glyph: two borders
+   of a small square, rotated. That keeps it crisp at any size and the same
+   shape on every device, since "▸" looks different from font to font.
+   Sized to sit level with the header text. */
 .layer > summary::before {
-  content: "▸";
-  color: #888;
-  font-size: 10px;
-  width: 10px;
+  content: "";
   flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 0 2px;
+  border-right: 2px solid #555;
+  border-bottom: 2px solid #555;
+  transform: rotate(-45deg); /* points right = collapsed */
+  transition: transform 0.15s ease;
 }
 .layer[open] > summary::before {
-  content: "▾";
+  transform: rotate(45deg); /* points down = expanded */
 }
 
 .layer-title {
   flex: 1;
-}
-
-/* The "base" tag on the always-on Crews layer (which has no on/off switch). */
-.layer-base-tag {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #777;
-  background: #ececec;
-  border-radius: 3px;
-  padding: 1px 5px;
 }
 
 /* The layer on/off switch (Hiring). Its click is stopped from reaching the
@@ -1057,6 +1055,11 @@ body {
   .layer > summary {
     font-size: 15px;
     min-height: 44px;
+  }
+  /* Header text is 15px here, so the chevron grows with it. */
+  .layer > summary::before {
+    width: 8px;
+    height: 8px;
   }
   .filter-panel .checkbox-row {
     min-height: 40px;
