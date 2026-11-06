@@ -11,7 +11,7 @@ changed and is non-negotiable.
 
 What is actually live today:
 
-- **The crew map** (`/map`) — **843 crews** as pins, narrowed by **state**,
+- **The crew map** (`/map`) — every row in the `crews` table as a pin, narrowed by **state**,
   **region**, **crew type**, **housing**, and **agency**. Click a pin for that
   crew's details. This is still the CORE product; everything else is icing.
 - **Not Forest Service only — not since the Atlas merge.** `crews` spans 11
@@ -58,6 +58,8 @@ That changes how you write:
 | Database + API | **Supabase** (Postgres + auto REST API) | Free Postgres; gives us a queryable API without writing a backend |
 | Map            | **Leaflet** + **OpenStreetMap** tiles | No API key, no signup, free |
 | Hosting        | **Vercel**                            | Free tier, integrates with Next.js |
+| Email          | **Resend**                            | Sends the submitter thank-you email when a submission is approved (owner-approved, set up 2026-09) |
+| Satellite tiles | **Esri World Imagery**               | Default satellite base layer on the Hikes map (`/hikes`) only; no key needed (owner-approved 2026-11) |
 
 **Hard constraints — do not violate without asking:**
 
@@ -65,9 +67,11 @@ That changes how you write:
   API, or tile provider that costs money or requires a credit card / paid key.
   (Note: Mapbox, Google Maps, etc. need keys/billing — **don't use them**. We use
   Leaflet + OSM specifically to avoid that.)
-- **Keep the number of separate services small.** Frontend (Vercel) + database
-  (Supabase) + map tiles (OSM) is the whole list. Don't add a fourth thing
-  unless there's no alternative — and if you think there is, raise it first.
+- **Keep the number of separate services small.** The table above is the whole
+  approved list. Resend and Esri World Imagery went through this rule and were
+  approved by the owner, so they are not violations. Don't add anything beyond
+  the table unless there's no alternative — and if you think there is, raise it
+  first.
 
 ## The data
 
@@ -75,10 +79,11 @@ Source file: **`crews_cleaned.json`** — a JSON array of **440** Forest Service
 crew records (the spec said "~440"; it's exactly 440).
 
 **⚠️ 440 is the SOURCE FILE, not the live dataset.** The Supabase `crews` table
-holds **843 rows**: the original 440 (still `source='usfs_official'`) plus 403
-added by the Handcrew Atlas merge, and it grows again as public submissions are
-approved. (It was 829/389 until 2026-09-18, when re-running the fixed importer
-recovered 14 crews an earlier dedup bug had swallowed.) Every count in this section — 440 records, 6 regions, 16 states,
+holds the original 440 (still `source='usfs_official'`) plus the Handcrew Atlas
+merge, plus every approved public submission, so it keeps growing. **Don't trust
+a written crew count, including any in this repo — query the live table**
+(`select count(*) from crews;`, or `group by source` for the breakdown).
+Every count in this section — 440 records, 6 regions, 16 states,
 371 websites — describes `crews_cleaned.json` as it was imported, and is
 deliberately left as a record of that file. For what's actually on the map,
 query the table or see `SESSION_SYNOPSIS.md`.
