@@ -6,104 +6,200 @@
 // for most of this project "the map IS the landing page" was a hard rule — no
 // splash, no homepage, straight to the pins. That was the right call while the
 // map was the only thing here. It isn't any more: there's a hiring layer and a
-// public submission form, and someone arriving cold at a screen of 829 dots has
+// public submission form, and someone arriving cold at a screen of dots has
 // no way to know either exists. So "/" explains the place, and "/map" is one
 // click away (and bookmarkable, so regulars never see this page twice).
 //
-// STRUCTURE: the cards below come from one array. Adding another is a single
-// object with no layout work — the grid reflows on its own. That's deliberate;
-// more will land here.
+// LAYOUT (2026-11 redesign): picked by the owner from three mockups, the
+// "numbers-forward" one, with the headline from the minimal mockup. It leads
+// with live counts from the database, then each section as a row tied to its
+// own number, then a short "know the gaps" box, then the full About section.
+// Styles live in Landing.module.css.
+//
+// STRUCTURE: the rows below come from one array. Adding another is a single
+// object with no layout work.
 
 import Link from "next/link";
+import styles from "./Landing.module.css";
+import useSiteStats, { fmt } from "../lib/useSiteStats";
 
-// Each card is { href, eyebrow, title, body, cta, requiresSubmissions? }.
-// `eyebrow` is the small label above the title — it's what makes a card
-// skimmable when there are six of these instead of three.
+// Each section is { key, href, eyebrow, title, body, cta, requiresSubmissions? }.
 //
-// `requiresSubmissions` ties a card to NEXT_PUBLIC_SUBMISSIONS_ENABLED, the
+// `requiresSubmissions` ties a row to NEXT_PUBLIC_SUBMISSIONS_ENABLED, the
 // same switch that controls the map panel's link. ONE flag governs every door
 // into the submission flow — two independent ways in would drift, and one of
 // them would eventually be pointing at a feature the other had turned off.
 const SECTIONS = [
   {
+    key: "map",
     href: "/map",
     eyebrow: "The map",
     title: "Find crews",
     body:
       "Every crew we know about, on one map. Filter by state, agency, crew type " +
-      "or Forest Service region. Click a pin and you get the crew's details, its " +
-      "website where there is one, and any open jobs nearby.",
+      "or Forest Service region. Click a pin for the crew's details, its website " +
+      "where there is one, and any open jobs nearby.",
     cta: "Open the map",
   },
   {
     // "?hiring=1" switches the Hiring layer on as the map opens. The layer is
     // off by default so a cold visitor sees crews first, but someone who
-    // clicked THIS card asked for postings — they should get them without
-    // having to find the toggle.
+    // clicked THIS row asked for postings.
+    key: "hiring",
     href: "/map?hiring=1",
     eyebrow: "Hiring",
     title: "See what's open",
     body:
-      "Open federal fire jobs pulled from USAJOBS, refreshed every day. They show " +
-      "as their own markers on the map, one per town, and you can narrow them by " +
-      "pay grade, salary, or whether the job is permanent or temporary.",
+      "Open federal fire jobs from USAJOBS, refreshed every day. One marker per " +
+      "town, and you can narrow them by pay grade, salary, or permanent vs. " +
+      "temporary.",
     cta: "See open jobs",
   },
   {
+    key: "submit",
     href: "/submit",
     eyebrow: "Add to it",
     title: "Submit a crew",
     body:
-      "There are gaps — plenty of crews aren't on here yet. If you know one " +
-      "that's missing, add it. Someone reads every submission before it goes " +
-      "on the map.",
+      "Plenty of crews aren't on here yet. If you know one that's missing, add " +
+      "it. Someone reads every submission before it goes on the map.",
     cta: "Add a crew",
     requiresSubmissions: true,
   },
   {
+    key: "hikes",
     href: "/hikes",
     eyebrow: "Hotshot crews",
     title: "Crew PT hikes",
     body:
-      "Every hotshot crew has (or wants) a signature conditioning hike. See " +
-      "the ones we know about so far — distance, elevation gain, and where " +
-      "we don't have real numbers yet, help fill them in.",
+      "Every hotshot crew has a signature conditioning hike. See the ones we " +
+      "know about: distance, elevation gain, and where we don't have real " +
+      "numbers yet, help fill them in.",
     cta: "See the hikes",
   },
 ];
+
+// Which live number sits next to which row. Rows with no number (Submit)
+// show a "+" instead.
+function statFor(key, stats) {
+  if (key === "map") return { n: stats.crews, label: "crews mapped" };
+  if (key === "hiring") return { n: stats.jobs, label: "open postings" };
+  if (key === "hikes") return { n: stats.hikes, label: "hikes on file" };
+  return null;
+}
 
 export default function Landing() {
   // Same switch the map panel uses. Not "true" means every route into the
   // submission flow is closed at once, which is the point of having one flag.
   const submissionsOn = process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true";
   const sections = SECTIONS.filter((s) => !s.requiresSubmissions || submissionsOn);
+  const stats = useSiteStats();
 
   return (
-    <div className="landing">
-      <header className="landing-hero">
-        <h1>Crew Map</h1>
-        <p className="landing-lede">
-          A map of wildland fire crews in the US — where they are, who they work
-          for, and what's hiring near them.
-        </p>
-        <Link className="landing-cta" href="/map">
-          Open the map →
-        </Link>
+    <div className={styles.page}>
+      <nav className={styles.nav}>
+        <span className={styles.brand}>
+          <span className={styles.brandDot} aria-hidden="true" />
+          Crew Map
+        </span>
+        <div className={styles.navLinks}>
+          <Link href="/map">Map</Link>
+          <Link href="/map?hiring=1">Jobs</Link>
+          <Link href="/hikes">Hikes</Link>
+          <a href="#about">About</a>
+        </div>
+      </nav>
+
+      <header className={styles.hero}>
+        <div>
+          <h1 className={styles.title}>Wildland fire crews, mapped.</h1>
+          <p className={styles.lede}>
+            A map of wildland fire crews in the US: where they are, who they work
+            for, and what&apos;s hiring near them.
+          </p>
+          <Link className={styles.cta} href="/map">
+            Open the map →
+          </Link>
+        </div>
+
+        {/* Live from the database (lib/useSiteStats.js). Shows "…" until
+            loaded, never a fake zero. */}
+        <dl className={styles.stats}>
+          <div className={styles.stat}>
+            <dt>Crews</dt>
+            <dd>{fmt(stats.crews)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>States</dt>
+            <dd>{fmt(stats.states)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>Agencies</dt>
+            <dd>{fmt(stats.agencies)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>Open jobs</dt>
+            <dd>{fmt(stats.jobs)}</dd>
+          </div>
+        </dl>
       </header>
 
-      <main className="landing-grid">
-        {sections.map((s) => (
-          <Link key={s.eyebrow} className="landing-card" href={s.href}>
-            <span className="landing-eyebrow">{s.eyebrow}</span>
-            <h2>{s.title}</h2>
-            <p>{s.body}</p>
-            <span className="landing-card-cta">{s.cta} →</span>
-          </Link>
-        ))}
+      <main className={styles.main}>
+        <ul className={styles.rows}>
+          {sections.map((s) => {
+            const stat = statFor(s.key, stats);
+            return (
+              <li key={s.key}>
+                <Link href={s.href} className={styles.row}>
+                  <div className={styles.rowStat}>
+                    {stat ? (
+                      <>
+                        <span className={styles.rowNum}>{fmt(stat.n)}</span>
+                        <span className={styles.rowNumLabel}>{stat.label}</span>
+                      </>
+                    ) : (
+                      <span className={styles.rowNum}>+</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className={styles.eyebrow}>{s.eyebrow}</span>
+                    <h2 className={styles.rowTitle}>{s.title}</h2>
+                    <p className={styles.rowBody}>{s.body}</p>
+                  </div>
+                  <span className={styles.rowCta}>{s.cta} →</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* A short version of "What it gets wrong" from the About section
+            below, promoted so people see the gaps before they hit them. */}
+        <section className={styles.gaps}>
+          <h2 className={styles.gapsTitle}>Know the gaps</h2>
+          <ul className={styles.gapsList}>
+            <li>
+              <strong>Pins sit mid-town,</strong> not at the station. That can be
+              a few miles out.
+            </li>
+            <li>
+              <strong>Unnamed crews</strong> show the base they work from, and say
+              so.
+            </li>
+            <li>
+              <strong>Blank housing</strong> means unknown, not &ldquo;no.&rdquo;
+            </li>
+            <li>
+              <strong>Coverage is thinnest</strong> outside the western regions.
+              We&apos;re filling it in.
+            </li>
+          </ul>
+        </section>
       </main>
 
-      {/* ABOUT — the destination for the map panel's "About this map" link,
-          which until now pointed at this page's hero and explained nothing.
+      {/* ABOUT — the destination for the map panel's "About this map" link
+          (/#about) and this page's own nav. Kept word for word through the
+          2026-11 redesign; styled by .landing-about in globals.css.
           WHY THIS EXISTS. The site uses agency names, Forest Service region
           structure and live federal job postings, and said nowhere that it
           isn't a government product. For an audience of federal employees that
@@ -161,13 +257,9 @@ export default function Landing() {
               Open the crew on the map and use the link in its details. Someone
               reads every one of these by hand.
             </p>
-            {/* Sits directly under the correction instructions on purpose, so
-                "the same form" refers unambiguously to the one just described.
-                Deliberately NOT a new contact route — no address, no second
+            {/* Deliberately NOT a new contact route — no address, no second
                 channel — everything keeps flowing through the one reviewed
-                pipeline. Inside the gated block for the same reason as the
-                paragraph above: if submissions are switched off, this must not
-                survive pointing at a form that no longer exists. */}
+                pipeline. */}
             <p>
               Have a general question or suggestion instead of a specific
               correction? Use the same form, and we&apos;ll get back to you

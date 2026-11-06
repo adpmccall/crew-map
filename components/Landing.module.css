@@ -1,0 +1,235 @@
+/* The homepage (components/Landing.js). Chosen from three mockups 2026-11
+   (the "numbers-forward" one).
+   A CSS Module: Next.js makes every class name here unique, so these styles
+   can't leak into any other page. Keeps the site's red (#b91c1c) as the
+   accent. The About section at the bottom still uses the .landing-about
+   rules in globals.css. */
+
+.page {
+  --accent: #b91c1c;
+  --ink: #111;
+  --muted: #5b5b5b;
+  --line: #e4e2de;
+  min-height: 100vh;
+  background: #f7f7f6;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
+
+/* ---- Top nav ------------------------------------------------------------- */
+
+.nav {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 17px;
+}
+.brandDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.navLinks {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+}
+.navLinks a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.navLinks a:hover { color: var(--accent); }
+
+/* ---- Hero: text left, live stats right ----------------------------------- */
+
+.hero {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 24px 40px;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: clamp(32px, 4.6vw, 50px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.lede {
+  margin: 0 0 26px;
+  max-width: 480px;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.cta {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  padding: 13px 24px;
+  border-radius: 8px;
+}
+.cta:hover { background: #991b1b; }
+
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line); /* shows through the 1px gap as grid lines */
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.stat {
+  background: #fff;
+  padding: 22px 22px 20px;
+}
+.stat dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat dd {
+  margin: 6px 0 0;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Section rows -------------------------------------------------------- */
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 24px 48px;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  gap: 28px;
+  align-items: center;
+  padding: 26px 4px;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+.row:hover { background: #fff; }
+.row:hover .rowCta { color: var(--accent); }
+
+.rowStat {
+  display: flex;
+  flex-direction: column;
+}
+.rowNum {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.rowNumLabel {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.rowTitle {
+  margin: 3px 0 6px;
+  font-size: 20px;
+}
+.rowBody {
+  margin: 0;
+  max-width: 600px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.rowCta {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* ---- Gaps ---------------------------------------------------------------- */
+
+.gaps {
+  margin-top: 40px;
+  padding: 24px 26px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+}
+.gapsTitle {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.gapsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 24px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #44403c;
+}
+
+/* ---- Phone --------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 28px 16px 28px;
+  }
+  .nav { padding: 14px 16px; }
+  .navLinks { gap: 14px; }
+  .main { padding: 8px 16px 48px; }
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .rowStat { flex-direction: row; align-items: baseline; gap: 8px; }
+  .stat dd { font-size: 32px; }
+}
