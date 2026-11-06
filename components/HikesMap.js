@@ -28,6 +28,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
+  LayersControl,
   CircleMarker,
   Polyline,
   Popup,
@@ -39,13 +40,28 @@ import { supabase } from "../lib/supabaseClient";
 import CrewPopup from "./CrewPopup";
 import HikePopup from "./HikePopup";
 
-const HAS_STATS_COLOR = "#166534"; // same green as the submitted-track line
+const HAS_STATS_COLOR = "#166534"; // pin color -- "real numbers on file"
 const KNOWN_NO_STATS_COLOR = "#2563eb"; // blue — "help us fill this in"
 const NO_HIKE_COLOR = "#9ca3af"; // grey — nothing on file yet
+
+// Deliberately its own color, NOT the same as HAS_STATS_COLOR above. The
+// line used to reuse that green so pin and track matched, but a dark green
+// line is hard to see against both the street map and (especially) satellite
+// imagery -- see 2026-11 owner feedback. A bright orange-red reads clearly
+// against pavement, forest canopy, and bare terrain alike, same logic as
+// AllTrails/most trail-overlay apps use. Pin colors (data-completeness
+// legend) are untouched by this.
+const TRACK_LINE_COLOR = "#ff4500";
 
 const US_CENTER = [39.5, -98.5];
 const US_ZOOM = 4;
 const POPUP_PAN_PADDING = [5, 72];
+
+// How long the "focus on this crew" animation takes, in seconds. flyTo/
+// flyToBounds ease pan+zoom together for a smooth, deliberate zoom-in,
+// rather than the instant snap setView/fitBounds give by default -- see
+// 2026-11 owner feedback asking for a slower zoom on pin click.
+const FLY_DURATION = 1.5;
 
 export default function HikesMap() {
   const [crews, setCrews] = useState([]);
@@ -130,7 +146,9 @@ export default function HikesMap() {
   // a mile from the pin) off-screen entirely. Now it frames the pin AND
   // every one of that crew's drawn tracks together. A crew with no track on
   // file (blue/grey) has nothing to fit but the pin, so it just centers on
-  // it at a reasonable street-level zoom instead.
+  // it at a reasonable street-level zoom instead. Uses flyTo/flyToBounds
+  // (not setView/fitBounds) so the zoom eases in smoothly over FLY_DURATION
+  // seconds instead of snapping instantly.
   function focusCrew(crew, crewHikes) {
     const map = mapRef.current;
     if (!map) return;
@@ -141,9 +159,15 @@ export default function HikesMap() {
     }
 
     if (points.length > 1) {
-      map.fitBounds(points, { padding: [50, 50], maxZoom: 15 });
+      map.flyToBounds(points, {
+        padding: [50, 50],
+        maxZoom: 15,
+        duration: FLY_DURATION,
+      });
     } else {
-      map.setView([crew.latitude, crew.longitude], 13);
+      map.flyTo([crew.latitude, crew.longitude], 13, {
+        duration: FLY_DURATION,
+      });
     }
   }
 
@@ -193,10 +217,25 @@ export default function HikesMap() {
         className="map-canvas"
         zoomControl={false}
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+        {/* Satellite is the default base layer (owner asked for this
+            2026-11, to make hike tracks easier to see against real terrain),
+            with Street Map available as a toggle via the layers control
+            Leaflet renders automatically, top-right by default. */}
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Satellite">
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+              maxZoom={19}
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Street Map">
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
         <ZoomControl position="bottomright" />
 
         {crews.map((crew) => {
@@ -226,7 +265,7 @@ export default function HikesMap() {
           <Polyline
             key={`hike-${hike.id}`}
             positions={hike.path}
-            pathOptions={{ color: HAS_STATS_COLOR, weight: 4, opacity: 0.85 }}
+            pathOptions={{ color: TRACK_LINE_COLOR, weight: 5, opacity: 0.9 }}
           >
             <Popup autoPanPaddingTopLeft={POPUP_PAN_PADDING}>
               <HikePopup
