@@ -71,3 +71,6 @@ photo_rehost_backup.json
 # 108 people's names, direct phone numbers and work emails. This is a PUBLIC
 # repo, so a stray `git add .` must not be able to publish one.
 Claude outputs/
+
+# Private Claude Code context (personal details, token notes) -- never commit
+CLAUDE.local.md
