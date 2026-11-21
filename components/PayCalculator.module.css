@@ -1,0 +1,93 @@
+/* The Fire Season Pay Calculator (components/PayCalculator.js).
+   Copied from the prototype (handoff/pay-estimator.html): inputs panel left,
+   live result panel right, one column on phones. Ember accent on a cool
+   neutral ground, with a dark theme that follows the device setting.
+
+   A CSS Module, like Landing.module.css: Next.js makes each class name unique,
+   so none of this leaks into the map or any other page. The prototype set its
+   colors on :root; here they're set on .page instead so they stay inside this
+   page. Element selectors (h1, select, table...) are nested under .page for
+   the same reason. */
+
+.page {
+  --bg: #f3f5f3;
+  --surface: #ffffff;
+  --fg: #18211d;
+  --muted: #55625b;
+  --line: #d9dfdb;
+  --accent: #b83f14;
+  --accent-fg: #ffffff;
+  --c-base: #2f6b57;
+  --c-ot: #b83f14;
+  --c-haz: #c98a0b;
+  --c-irp: #3f5a9c;
+  --note-bg: #eef1ee;
+  /* --font-head / --font-body are set by next/font in PayCalculator.js; the
+     names after them are fallbacks while the fonts load. */
+  --head: var(--font-head), "Helvetica Neue", Arial, sans-serif;
+  --body: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.55;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark) {
+  .page {
+    --bg: #111613; --surface: #1a211d; --fg: #e8eee9; --muted: #a2b0a7; --line: #2d3832;
+    --accent: #f08a5d; --accent-fg: #1a0d06;
+    --c-base: #52a688; --c-ot: #f08a5d; --c-haz: #e3b04b; --c-irp: #8ea6e6; --note-bg: #19201c;
+    color-scheme: dark;
+  }
+}
+.page * { box-sizing: border-box; }
+
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.page h1, .page h2 { font-family: var(--head); text-wrap: balance; margin: 0; }
+.page h1 { font-size: 1.9rem; line-height: 1.15; }
+.page h2 { font-size: 1.05rem; }
+.back { margin: 0 0 10px; font-size: 0.88rem; }
+.back a { color: var(--muted); text-decoration: none; }
+.back a:hover { color: var(--accent); }
+.lede { color: var(--muted); max-width: 65ch; margin: 6px 0 0; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; gap: 12px; }
+.row > .field { flex: 1; min-width: 0; }
+.page label, .lbl { font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.val { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.lblrow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.page select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+.page input[type="range"] { width: 100%; accent-color: var(--accent); }
+.page select:focus-visible, .page input:focus-visible, .page button:focus-visible, .page a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.pre { font: inherit; font-size: 0.82rem; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.pre:hover { border-color: var(--accent); }
+.pre[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.total { display: flex; flex-direction: column; gap: 2px; }
+.big { font-family: var(--head); font-size: 2.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sub { color: var(--muted); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.loc { border: 1px solid var(--line); background: var(--note-bg); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.bar span { display: block; height: 100%; }
+.page table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.page th, .page td { text-align: left; padding: 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.page th { font-weight: 500; }
+.num { text-align: right !important; white-space: nowrap; font-weight: 600; }
+.how { color: var(--muted); font-size: 0.82rem; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; }
+.tablewrap { overflow-x: auto; }
+.notes { background: var(--note-bg); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.notes ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
+.notes a, .next a { color: var(--accent); }
+.next { font-size: 0.95rem; margin: 0; }
+.foot { color: var(--muted); font-size: 0.8rem; margin: 0; }

@@ -9,6 +9,16 @@
 // map needs.
 
 import Landing from "../components/Landing";
+import { LOCALITIES } from "../lib/payData";
+import { FAQ_SECTIONS } from "../lib/faq";
+
+// The counts printed on the Pay and FAQ cards ("58 pay areas", "33 plain
+// answers"), taken from the real data so they can't go stale. They're counted
+// HERE, on the server, and passed down: Landing is a client component, and
+// importing lib/faq.js there would ship the whole FAQ text to every visitor's
+// browser just to count it.
+const PAY_AREAS = LOCALITIES.length;
+const FAQ_COUNT = FAQ_SECTIONS.reduce((sum, sec) => sum + sec.q.length, 0);
 
 export const metadata = {
   title: "Crew Map — US wildland fire crews",
@@ -26,5 +36,5 @@ export const metadata = {
 };
 
 export default function HomePage() {
-  return <Landing />;
+  return <Landing payAreas={PAY_AREAS} faqCount={FAQ_COUNT} />;
 }

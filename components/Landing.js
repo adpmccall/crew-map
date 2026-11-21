@@ -88,7 +88,9 @@ function statFor(key, stats) {
   return null;
 }
 
-export default function Landing() {
+// `payAreas` and `faqCount` are the numbers on the two guide cards, counted
+// from lib/payData.js and lib/faq.js by app/page.js.
+export default function Landing({ payAreas, faqCount }) {
   // Same switch the map panel uses. Not "true" means every route into the
   // submission flow is closed at once, which is the point of having one flag.
   const submissionsOn = process.env.NEXT_PUBLIC_SUBMISSIONS_ENABLED === "true";
@@ -172,6 +174,43 @@ export default function Landing() {
             );
           })}
         </ul>
+
+        {/* GUIDE CARDS (2026-11): the Pay Calculator and the FAQ, as one row
+            of two cards after the four rows above, from the owner's mock
+            (handoff/home-final.html). Two columns on wide screens, stacked
+            on phones. Not part of SECTIONS because they're a different
+            shape: no live number, and each has its own small graphic. */}
+        <div className={styles.cards}>
+          <Link href="/pay" className={`${styles.card} ${styles.payCard}`}>
+            <span className={styles.eyebrow}>The pay</span>
+            <h2 className={styles.cardTitle}>Fire Season Pay Calculator</h2>
+            {/* A decorative mini version of the calculator's pay bar. */}
+            <div className={styles.viz} aria-hidden="true">
+              <i className={styles.vizA} />
+              <i className={styles.vizB} />
+              <i className={styles.vizC} />
+            </div>
+            <p className={styles.cardBody}>
+              Pick your grade, step, and locality, then add overtime, hazard pay, and assignment days. Grades 3
+              to 12, {payAreas} pay areas.
+            </p>
+            <span className={styles.cardCta}>Open the pay calculator →</span>
+          </Link>
+          <Link href="/faq" className={`${styles.card} ${styles.faqCard}`}>
+            <span className={styles.eyebrow}>Getting hired</span>
+            <h2 className={styles.cardTitle}>Fire Job FAQ</h2>
+            <p className={styles.cardBody}>
+              What the work is like, what it pays, who qualifies, and how hiring works. {faqCount} plain answers.
+            </p>
+            <div className={styles.chips} aria-hidden="true">
+              <span>When should I apply?</span>
+              <span>What is the pack test?</span>
+              <span>Where will I live?</span>
+              <span>Do veterans get preference?</span>
+            </div>
+            <span className={styles.cardCta}>Read the FAQ →</span>
+          </Link>
+        </div>
 
         {/* A short version of "What it gets wrong" from the About section
             below, promoted so people see the gaps before they hit them. */}
