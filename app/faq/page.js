@@ -21,10 +21,13 @@ import FaqHashOpener from "../../components/FaqHashOpener";
 const headFont = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-head" });
 const bodyFont = Figtree({ subsets: ["latin"], variable: "--font-body" });
 
-const title = "Fire Job FAQ · Crew Map";
+// Search title and H1 match the way people phrase the search ("how to get a
+// wildland fire job"); the home page card still calls it "Fire Job FAQ"
+// (SEO round 1, owner-approved text).
+const title = "How to Get a Wildland Fire Job: Plain-English FAQ · Crew Map";
 const description =
-  "Plain answers about wildland fire jobs in the US: what the work is like, " +
-  "what it pays, who qualifies, and how hiring works.";
+  "Plain answers on getting a wildland fire job: what the work is, pay, the " +
+  "pack test, who qualifies, when to apply, and how hiring works.";
 
 export const metadata = {
   title,
@@ -83,7 +86,7 @@ export default function FaqPage() {
         <p className={styles.back}>
           <Link href="/">← Back to home</Link>
         </p>
-        <h1>Getting a wildland fire job</h1>
+        <h1>How to get a wildland fire job</h1>
         <p className={styles.lede}>
           Plain answers to the questions people ask before they apply: what the work is, what it pays, who
           qualifies, and how hiring works. Written for the United States.

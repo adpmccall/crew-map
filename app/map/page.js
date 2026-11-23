@@ -14,6 +14,22 @@ const CrewMap = dynamic(() => import("../../components/CrewMap"), {
   loading: () => <p style={{ padding: 16 }}>Loading map…</p>,
 });
 
+// /map had no metadata of its own, so it was showing the site-wide default
+// title and description from app/layout.js. (SEO round 1, owner-approved text.)
+const title = "Wildland Fire Crew Map: Find US Crews and Open Jobs · Crew Map";
+const description =
+  "Find US wildland fire crews on a map: hotshot, engine, helitack and more, " +
+  "with agency, location and contact details, plus open federal fire jobs.";
+
+export const metadata = {
+  title,
+  description,
+  // Without this, /map?hiring=1 and /map could be indexed as two pages.
+  alternates: { canonical: "/map" },
+  openGraph: { title, description, url: "/map", siteName: "Crew Map", type: "website" },
+  twitter: { card: "summary", title, description },
+};
+
 export default function MapPage() {
   return <CrewMap />;
 }

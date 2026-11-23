@@ -7,11 +7,27 @@
 
 import PayCalculator from "../../components/PayCalculator";
 
-const title = "Fire Season Pay Calculator · Crew Map";
+// The tab/search title says "Wildland Firefighter Pay Calculator 2026" (the
+// words people search for), while the page's own H1 stays "Fire Season Pay
+// Calculator" (SEO round 1, owner-approved text).
+const title = "Wildland Firefighter Pay Calculator 2026 · Crew Map";
 const description =
-  "Estimate a federal wildland firefighter's season pay from the 2026 GW " +
-  "tables: grade, step, locality, overtime, hazard pay, and incident " +
-  "assignment days.";
+  "Free wildland firefighter pay calculator. Estimate a season's pay from the " +
+  "2026 GW table: grade, step, locality, overtime, hazard pay and incident days.";
+
+// WebApplication structured data (JSON-LD): a machine-readable note telling
+// search engines this page is a free tool. "FinanceApplication" is schema.org's
+// category for money calculators; price 0 means free.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Fire Season Pay Calculator",
+  description,
+  url: "https://usfiremaps.com/pay",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Any",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+};
 
 export const metadata = {
   title,
@@ -25,5 +41,15 @@ export const metadata = {
 };
 
 export default function PayPage() {
-  return <PayCalculator />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // Escaping "<" stops any text from closing the <script> tag early
+        // (same as app/faq/page.js).
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
+      <PayCalculator />
+    </>
+  );
 }

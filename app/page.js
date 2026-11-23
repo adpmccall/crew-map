@@ -35,6 +35,24 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
+// WebSite structured data (JSON-LD): tells search engines the site's name, so
+// results can show "Crew Map" instead of the bare domain.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Crew Map",
+  url: "https://usfiremaps.com",
+};
+
 export default function HomePage() {
-  return <Landing payAreas={PAY_AREAS} faqCount={FAQ_COUNT} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // Escaping "<" stops any text from closing the <script> tag early.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
+      <Landing payAreas={PAY_AREAS} faqCount={FAQ_COUNT} />
+    </>
+  );
 }
