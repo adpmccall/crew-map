@@ -20,14 +20,24 @@ import { FAQ_SECTIONS } from "../lib/faq";
 const PAY_AREAS = LOCALITIES.length;
 const FAQ_COUNT = FAQ_SECTIONS.reduce((sum, sec) => sum + sec.q.length, 0);
 
+// The home page title leads with the domain's name ("US Fire Maps") and the
+// three things the site covers. Other pages keep their "· Crew Map" suffix,
+// and the structured data below still names the site "Crew Map" (owner's
+// call, SEO round 1).
+const title = "US Fire Maps: Wildland Fire Crews, Jobs and Pay";
+// Kept in step with the on-page copy: the "free, no account" line was
+// dropped from the hero, so it goes from here too. This string isn't visible
+// on the page but it is what search results and link previews show.
+const description =
+  "A map of wildland fire crews in the US: where they are, who they work for, " +
+  "and what's hiring near them.";
+
 export const metadata = {
-  title: "Crew Map: US wildland fire crews",
-  // Kept in step with the on-page copy: the "free, no account" line was
-  // dropped from the hero, so it goes from here too. This string isn't visible
-  // on the page but it is what search results and link previews show.
-  description:
-    "A map of wildland fire crews in the US: where they are, who they work for, " +
-    "and what's hiring near them.",
+  title,
+  description,
+  // Link previews (Facebook, Reddit, iMessage, X...), same pattern as /pay.
+  openGraph: { title, description, url: "/", siteName: "Crew Map", type: "website" },
+  twitter: { card: "summary", title, description },
   // Pin the canonical URL to the bare domain. www.usfiremaps.com serves the
   // same site via a redirect, so without this a search engine could index both
   // and split them. `metadataBase` in layout.js makes this relative path
