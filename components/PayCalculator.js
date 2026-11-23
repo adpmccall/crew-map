@@ -269,9 +269,9 @@ export default function PayCalculator() {
               define which counties fall in each area (5 CFR 591.205).
             </li>
             <li>
-              Overtime is 1.5 times the basic hourly rate. This assumes the position is FLSA non-exempt, which the
-              job posting lists. Other pay rules can apply to some positions, so confirm with your unit&apos;s
-              payroll.
+              Overtime is 1.5 times the basic hourly rate. This assumes the position is FLSA non-exempt, as most
+              firefighter positions are. Other pay rules can apply to some positions, so confirm with your
+              unit&apos;s payroll.
             </li>
             <li>
               Hazard pay is 25 percent of the basic hourly rate for qualifying hours. Prescribed fire ignition and
