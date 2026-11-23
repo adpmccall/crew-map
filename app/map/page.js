@@ -65,7 +65,7 @@ export default async function MapPage() {
 
           {states && states.length > 0 && (
             <>
-              <h2>States with crews on the map</h2>
+              <h2>States and territories with crews on the map</h2>
               <ul className={styles.states}>
                 {states.map((s) => (
                   <li key={s.name}>
