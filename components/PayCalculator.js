@@ -80,10 +80,7 @@ export default function PayCalculator() {
       name: "Overtime",
       v: r.ot,
       c: "var(--c-ot)",
-      how:
-        ot.toLocaleString("en-US") + " hrs at " + usd2(r.otRate) +
-        // "(capped)" only when the overtime cap, not 1.5x, set the rate.
-        (r.otRate < r.b * 1.5 - 0.005 && r.otRate >= r.otCap - 0.005 ? " (capped)" : ""),
+      how: ot.toLocaleString("en-US") + " hrs at " + usd2(r.otRate),
     },
     {
       name: "Hazard pay",
@@ -272,10 +269,9 @@ export default function PayCalculator() {
               define which counties fall in each area (5 CFR 591.205).
             </li>
             <li>
-              Overtime is 1.5 times the basic hourly rate. For higher-paid employees, OPM&apos;s table limits the
-              hourly overtime rate to 1.5 times the grade 10 step 1 rate in that locality. Entry-level grades in the
-              Rest of U.S. area do not reach that limit. Other pay rules can apply to some positions, so confirm
-              with your unit&apos;s payroll.
+              Overtime is 1.5 times the basic hourly rate. This assumes the position is FLSA non-exempt, which the
+              job posting lists. Other pay rules can apply to some positions, so confirm with your unit&apos;s
+              payroll.
             </li>
             <li>
               Hazard pay is 25 percent of the basic hourly rate for qualifying hours. Prescribed fire ignition and
