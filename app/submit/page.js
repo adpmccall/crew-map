@@ -12,6 +12,9 @@ export const metadata = {
   title: "Add a crew · Crew Map",
   description:
     "Submit a wildland fire crew that's missing from the map. Reviewed before it appears.",
+  // /submit?crew=<id> (a correction report) is the same page, so it shares
+  // this one canonical address.
+  alternates: { canonical: "/submit" },
 };
 
 export default function SubmitPage() {

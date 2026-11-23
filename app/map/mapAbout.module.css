@@ -1,0 +1,63 @@
+/* The text section under the map (app/map/page.js): H1, intro, and the
+   states that have crews. Plain and quiet on purpose. The map stays the
+   main thing on this page, and this is mostly for people who scroll down
+   and for search engines. Site colors and system font, like the home page.
+   A CSS Module, so none of this can affect the map's own styles. */
+
+/* Placeholder while the map's code loads: same height as the map
+   (.map-wrapper in globals.css), so the section below doesn't jump. */
+.loading {
+  margin: 0;
+  padding: 16px;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+}
+
+.about {
+  background: #f7f7f6;
+  color: #111;
+  font-family: system-ui, sans-serif;
+  border-top: 1px solid #e4e2de;
+}
+.inner {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+}
+.about h1 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  line-height: 1.2;
+}
+.about h2 {
+  margin: 28px 0 10px;
+  font-size: 17px;
+}
+.about p {
+  margin: 0;
+  max-width: 65ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #44403c;
+}
+
+/* The states flow into as many columns as fit. */
+.states {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 4px 20px;
+  font-size: 14.5px;
+}
+.count {
+  color: #5b5b5b;
+  font-variant-numeric: tabular-nums;
+}
+.about .note {
+  margin-top: 14px;
+  font-size: 13.5px;
+  color: #5b5b5b;
+}

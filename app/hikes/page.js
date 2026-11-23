@@ -13,7 +13,8 @@ const HikesMap = dynamic(() => import("../../components/HikesMap"), {
 export const metadata = {
   title: "Hotshot Crew Hikes · Crew Map",
   description:
-    "Hotshot crews' signature PT/conditioning hikes — distance, elevation gain, and location, where we have them.",
+    "Hotshot crews' signature PT/conditioning hikes: distance, elevation gain, and location, where we have them.",
+  alternates: { canonical: "/hikes" },
 };
 
 export default function HikesPage() {

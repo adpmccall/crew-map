@@ -21,7 +21,7 @@ const PAY_AREAS = LOCALITIES.length;
 const FAQ_COUNT = FAQ_SECTIONS.reduce((sum, sec) => sum + sec.q.length, 0);
 
 export const metadata = {
-  title: "Crew Map — US wildland fire crews",
+  title: "Crew Map: US wildland fire crews",
   // Kept in step with the on-page copy: the "free, no account" line was
   // dropped from the hero, so it goes from here too. This string isn't visible
   // on the page but it is what search results and link previews show.
