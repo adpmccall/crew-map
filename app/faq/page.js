@@ -80,6 +80,9 @@ export default function FaqPage() {
       <FaqHashOpener />
 
       <main className={styles.main}>
+        <p className={styles.back}>
+          <Link href="/">← Back to home</Link>
+        </p>
         <h1>Getting a wildland fire job</h1>
         <p className={styles.lede}>
           Plain answers to the questions people ask before they apply: what the work is, what it pays, who

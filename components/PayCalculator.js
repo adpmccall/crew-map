@@ -40,9 +40,9 @@ const bodyFont = Inter({
 const GRADES = Object.keys(RATES).map(Number); // [3, 4, ... 12]
 const STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const OT_PRESETS = [
-  { v: 400, label: "Light: 400" },
-  { v: 700, label: "Typical: 700" },
-  { v: 1000, label: "Heavy: 1,000" },
+  { v: 300, label: "Light: 300" },
+  { v: 500, label: "Moderate: 500" },
+  { v: 700, label: "Heavy: 700" },
 ];
 
 // Money formats, same as the prototype: whole dollars for totals, cents for rates.
@@ -104,7 +104,7 @@ export default function PayCalculator() {
       <div className={styles.wrap}>
         <header>
           <p className={styles.back}>
-            <Link href="/map">← Back to the map</Link>
+            <Link href="/">← Back to home</Link>
           </p>
           <h1>Fire Season Pay Calculator</h1>
           <p className={styles.lede}>
@@ -150,8 +150,8 @@ export default function PayCalculator() {
               </div>
             </div>
             <p className={styles.hint}>
-              Postings often say GS-4, but wildland firefighters are paid from the GW table, which uses the same
-              grade numbers. <span>Basic rate {usd2(r.b)}/hr. Overtime {usd2(r.otRate)}/hr.</span>
+              Older articles and some postings say GS. Since 2025 wildland firefighters are paid from the GW table,
+              and this calculator uses it. <span>Basic rate {usd2(r.b)}/hr. Overtime {usd2(r.otRate)}/hr.</span>
             </p>
 
             <div className={styles.field}>
@@ -272,9 +272,10 @@ export default function PayCalculator() {
               define which counties fall in each area (5 CFR 591.205).
             </li>
             <li>
-              Overtime is 1.5 times the basic hourly rate, limited to a cap equal to 1.5 times the grade 10 step 1
-              rate (GW table) in that locality, which is how the OPM table computes it for FLSA-exempt employees.
-              Wage-grade and other FLSA non-exempt positions are calculated differently.
+              Overtime is 1.5 times the basic hourly rate. For higher-paid employees, OPM&apos;s table limits the
+              hourly overtime rate to 1.5 times the grade 10 step 1 rate in that locality. Entry-level grades in the
+              Rest of U.S. area do not reach that limit. Other pay rules can apply to some positions, so confirm
+              with your unit&apos;s payroll.
             </li>
             <li>
               Hazard pay is 25 percent of the basic hourly rate for qualifying hours. Prescribed fire ignition and

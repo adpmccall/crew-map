@@ -37,6 +37,10 @@
 .main { max-width: 760px; margin: 0 auto; }
 .page h1, .page h2 { font-family: var(--head); text-wrap: balance; line-height: 1.15; margin: 0; }
 .page h1 { font-size: clamp(2rem, 6vw, 3rem); font-weight: 800; }
+/* "← Back to home", sized and spaced like the one on /pay (PayCalculator.module.css .back). */
+.back { margin: 0 0 10px; font-size: 0.88rem; }
+.back a { color: var(--muted); text-decoration: none; }
+.back a:hover { color: var(--accent); }
 .lede { color: var(--muted); max-width: 60ch; margin: 12px 0 0; }
 .stamp { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
 
